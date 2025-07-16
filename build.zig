@@ -22,6 +22,32 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    // Get dependency modules
+    const zsync = b.dependency("zsync", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const ghostnet = b.dependency("ghostnet", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zqlite = b.dependency("zqlite", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const flash = b.dependency("flash", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zcrypto = b.dependency("zcrypto", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const phantom = b.dependency("phantom", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
     // Zig modules are the preferred way of making Zig code available to consumers.
@@ -40,6 +66,14 @@ pub fn build(b: *std.Build) void {
         // Later on we'll use this module as the root module of a test executable
         // which requires us to specify a target.
         .target = target,
+        .imports = &.{
+            .{ .name = "zsync", .module = zsync.module("zsync") },
+            .{ .name = "ghostnet", .module = ghostnet.module("ghostnet") },
+            .{ .name = "zqlite", .module = zqlite.module("zqlite") },
+            .{ .name = "flash", .module = flash.module("flash") },
+            .{ .name = "zcrypto", .module = zcrypto.module("zcrypto") },
+            .{ .name = "phantom", .module = phantom.module("phantom") },
+        },
     });
 
     // Here we define an executable. An executable needs to have a root module
@@ -80,6 +114,12 @@ pub fn build(b: *std.Build) void {
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
                 .{ .name = "zeke", .module = mod },
+                .{ .name = "zsync", .module = zsync.module("zsync") },
+                .{ .name = "ghostnet", .module = ghostnet.module("ghostnet") },
+                .{ .name = "zqlite", .module = zqlite.module("zqlite") },
+                .{ .name = "flash", .module = flash.module("flash") },
+                .{ .name = "zcrypto", .module = zcrypto.module("zcrypto") },
+                .{ .name = "phantom", .module = phantom.module("phantom") },
             },
         }),
     });
