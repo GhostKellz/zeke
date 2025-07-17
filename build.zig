@@ -27,10 +27,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    const ghostnet = b.dependency("ghostnet", .{
-        .target = target,
-        .optimize = optimize,
-    });
     const zqlite = b.dependency("zqlite", .{
         .target = target,
         .optimize = optimize,
@@ -68,7 +64,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .imports = &.{
             .{ .name = "zsync", .module = zsync.module("zsync") },
-            .{ .name = "ghostnet", .module = ghostnet.module("ghostnet") },
             .{ .name = "zqlite", .module = zqlite.module("zqlite") },
             .{ .name = "flash", .module = flash.module("flash") },
             .{ .name = "zcrypto", .module = zcrypto.module("zcrypto") },
@@ -115,8 +110,7 @@ pub fn build(b: *std.Build) void {
                 // importing modules from different packages).
                 .{ .name = "zeke", .module = mod },
                 .{ .name = "zsync", .module = zsync.module("zsync") },
-                .{ .name = "ghostnet", .module = ghostnet.module("ghostnet") },
-                .{ .name = "zqlite", .module = zqlite.module("zqlite") },
+                    .{ .name = "zqlite", .module = zqlite.module("zqlite") },
                 .{ .name = "flash", .module = flash.module("flash") },
                 .{ .name = "zcrypto", .module = zcrypto.module("zcrypto") },
                 .{ .name = "phantom", .module = phantom.module("phantom") },

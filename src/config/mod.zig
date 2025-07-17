@@ -20,6 +20,46 @@ pub const KeybindingConfig = struct {
     toggle_inline: []const u8 = "<leader>at",
 };
 
+pub const ProviderEndpointConfig = struct {
+    copilot: []const u8 = "https://api.githubcopilot.com",
+    claude: []const u8 = "https://api.anthropic.com",
+    openai: []const u8 = "https://api.openai.com",
+    ollama: []const u8 = "http://localhost:11434",
+    ghostllm: []const u8 = "http://localhost:8080",
+};
+
+pub const OAuthConfig = struct {
+    google_client_id: ?[]const u8 = null,
+    google_client_secret: ?[]const u8 = null,
+    github_client_id: ?[]const u8 = null,
+    github_client_secret: ?[]const u8 = null,
+    redirect_uri: []const u8 = "http://localhost:8080/callback",
+};
+
+pub const StreamingConfig = struct {
+    enabled: bool = true,
+    chunk_size: u32 = 4096,
+    timeout_ms: u32 = 30000,
+    enable_websocket: bool = true,
+    websocket_port: u16 = 8081,
+};
+
+pub const RealTimeConfig = struct {
+    enabled: bool = false,
+    typing_assistance: bool = true,
+    code_analysis: bool = true,
+    auto_suggestions: bool = true,
+    debounce_ms: u32 = 300,
+};
+
+pub const ProviderPreferencesConfig = struct {
+    default_provider: []const u8 = "ghostllm",
+    fallback_enabled: bool = true,
+    health_check_interval_s: u32 = 300,
+    auto_switch_on_failure: bool = true,
+    preferred_providers: []const []const u8 = &[_][]const u8{ "ghostllm", "claude", "openai" },
+};
+
 pub const Config = struct {
     allocator: std.mem.Allocator,
     
@@ -28,15 +68,25 @@ pub const Config = struct {
     models: std.ArrayList(ModelConfig),
     
     // API endpoints
-    copilot_endpoint: []const u8 = "https://api.githubcopilot.com",
-    claude_endpoint: []const u8 = "https://api.anthropic.com",
-    openai_endpoint: []const u8 = "https://api.openai.com",
-    ollama_endpoint: []const u8 = "http://localhost:11434",
+    endpoints: ProviderEndpointConfig = ProviderEndpointConfig{},
     
     // Authentication
     github_token: ?[]const u8 = null,
     openai_api_key: ?[]const u8 = null,
     claude_api_key: ?[]const u8 = null,
+    ghostllm_api_key: ?[]const u8 = null,
+    
+    // OAuth settings
+    oauth: OAuthConfig = OAuthConfig{},
+    
+    // Provider preferences
+    providers: ProviderPreferencesConfig = ProviderPreferencesConfig{},
+    
+    // Streaming configuration
+    streaming: StreamingConfig = StreamingConfig{},
+    
+    // Real-time features
+    realtime: RealTimeConfig = RealTimeConfig{},
     
     // Keybindings
     keybindings: KeybindingConfig = KeybindingConfig{},
@@ -46,14 +96,22 @@ pub const Config = struct {
     chat_enabled: bool = true,
     inline_suggestions: bool = true,
     context_lines: u32 = 50,
+    smart_routing: bool = true,
+    
+    // Performance
+    request_timeout_ms: u32 = 30000,
+    max_concurrent_requests: u32 = 5,
+    rate_limit_requests_per_minute: u32 = 100,
     
     // Logging
     log_level: std.log.Level = .info,
     log_file: ?[]const u8 = null,
+    log_requests: bool = false,
     
     // Security
     store_tokens_encrypted: bool = true,
     telemetry_enabled: bool = false,
+    validate_ssl: bool = true,
     
     const Self = @This();
     
@@ -75,6 +133,21 @@ pub const Config = struct {
         }
         if (self.claude_api_key) |key| {
             self.allocator.free(key);
+        }
+        if (self.ghostllm_api_key) |key| {
+            self.allocator.free(key);
+        }
+        if (self.oauth.google_client_id) |id| {
+            self.allocator.free(id);
+        }
+        if (self.oauth.google_client_secret) |secret| {
+            self.allocator.free(secret);
+        }
+        if (self.oauth.github_client_id) |id| {
+            self.allocator.free(id);
+        }
+        if (self.oauth.github_client_secret) |secret| {
+            self.allocator.free(secret);
         }
         if (self.log_file) |file| {
             self.allocator.free(file);
@@ -125,6 +198,7 @@ pub const Config = struct {
     }
     
     pub fn loadFromEnv(self: *Self) !void {
+        // API Keys
         if (std.process.getEnvVarOwned(self.allocator, "GITHUB_TOKEN")) |token| {
             self.github_token = token;
         } else |_| {}
@@ -137,6 +211,55 @@ pub const Config = struct {
             self.claude_api_key = key;
         } else |_| {}
         
+        if (std.process.getEnvVarOwned(self.allocator, "GHOSTLLM_API_KEY")) |key| {
+            self.ghostllm_api_key = key;
+        } else |_| {}
+        
+        // OAuth configuration
+        if (std.process.getEnvVarOwned(self.allocator, "GOOGLE_CLIENT_ID")) |id| {
+            self.oauth.google_client_id = id;
+        } else |_| {}
+        
+        if (std.process.getEnvVarOwned(self.allocator, "GOOGLE_CLIENT_SECRET")) |secret| {
+            self.oauth.google_client_secret = secret;
+        } else |_| {}
+        
+        if (std.process.getEnvVarOwned(self.allocator, "GITHUB_CLIENT_ID")) |id| {
+            self.oauth.github_client_id = id;
+        } else |_| {}
+        
+        if (std.process.getEnvVarOwned(self.allocator, "GITHUB_CLIENT_SECRET")) |secret| {
+            self.oauth.github_client_secret = secret;
+        } else |_| {}
+        
+        // Endpoints
+        if (std.process.getEnvVarOwned(self.allocator, "GHOSTLLM_ENDPOINT")) |endpoint| {
+            defer self.allocator.free(endpoint);
+            self.endpoints.ghostllm = try self.allocator.dupe(u8, endpoint);
+        } else |_| {}
+        
+        if (std.process.getEnvVarOwned(self.allocator, "OLLAMA_ENDPOINT")) |endpoint| {
+            defer self.allocator.free(endpoint);
+            self.endpoints.ollama = try self.allocator.dupe(u8, endpoint);
+        } else |_| {}
+        
+        // Features
+        if (std.process.getEnvVarOwned(self.allocator, "ZEKE_STREAMING_ENABLED")) |enabled| {
+            defer self.allocator.free(enabled);
+            self.streaming.enabled = std.mem.eql(u8, enabled, "true");
+        } else |_| {}
+        
+        if (std.process.getEnvVarOwned(self.allocator, "ZEKE_REALTIME_ENABLED")) |enabled| {
+            defer self.allocator.free(enabled);
+            self.realtime.enabled = std.mem.eql(u8, enabled, "true");
+        } else |_| {}
+        
+        if (std.process.getEnvVarOwned(self.allocator, "ZEKE_SMART_ROUTING")) |enabled| {
+            defer self.allocator.free(enabled);
+            self.smart_routing = std.mem.eql(u8, enabled, "true");
+        } else |_| {}
+        
+        // Logging
         if (std.process.getEnvVarOwned(self.allocator, "ZEKE_LOG_LEVEL")) |level| {
             defer self.allocator.free(level);
             if (std.mem.eql(u8, level, "debug")) {
@@ -148,6 +271,11 @@ pub const Config = struct {
             } else if (std.mem.eql(u8, level, "err")) {
                 self.log_level = .err;
             }
+        } else |_| {}
+        
+        if (std.process.getEnvVarOwned(self.allocator, "ZEKE_LOG_REQUESTS")) |enabled| {
+            defer self.allocator.free(enabled);
+            self.log_requests = std.mem.eql(u8, enabled, "true");
         } else |_| {}
     }
     
