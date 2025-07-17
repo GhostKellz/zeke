@@ -38,7 +38,7 @@
         },
         .ghostnet = .{
             .url = "https://github.com/ghostkellz/ghostnet/archive/main.tar.gz",
-            .hash = "ghostnet-0.2.1-mG-fWPG5BQDF0zGg6YWl1LgNiOzzZRrmT4XU9xl6I4s5",
+            .hash = "ghostnet-0.2.3-mG-fWC_MBwBffS9k3967RGmWPg6Hdn7cyed300bT-m2v",
         },
         .zqlite = .{
             .url = "https://github.com/ghostkellz/zqlite/archive/refs/heads/main.tar.gz",
