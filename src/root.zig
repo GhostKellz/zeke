@@ -8,6 +8,11 @@ pub const config = @import("config/mod.zig");
 pub const providers = @import("providers/mod.zig");
 pub const streaming = @import("streaming/mod.zig");
 pub const error_handling = @import("error_handling/mod.zig");
+pub const context = @import("context/mod.zig");
+pub const concurrent = @import("concurrent/mod.zig");
+pub const system = @import("system/arch.zig");
+pub const tui = @import("tui/mod.zig");
+pub const rpc = @import("rpc/msgpack_rpc.zig");
 
 pub const ZekeError = error{
     InitializationFailed,
@@ -26,6 +31,9 @@ pub const Zeke = struct {
     api_client: api.ApiClient,
     provider_manager: providers.ProviderManager,
     fallback_manager: error_handling.FallbackManager,
+    context_cache: context.ProjectContextCache,
+    concurrent_ai: concurrent.ConcurrentAI,
+    arch_system: ?system.ArchSystem,
     realtime_features: ?streaming.RealTimeFeatures,
     current_model: []const u8,
     current_provider: api.ApiProvider,
@@ -52,6 +60,18 @@ pub const Zeke = struct {
         // Initialize fallback manager for error handling
         const fallback_manager = error_handling.FallbackManager.init(allocator);
         
+        // Initialize context cache for project intelligence
+        const context_cache = context.ProjectContextCache.init(allocator);
+        
+        // Initialize concurrent AI handler
+        const concurrent_ai = try concurrent.ConcurrentAI.init(allocator, &provider_manager);
+        
+        // Initialize Arch Linux system integration if available
+        const arch_system = if (system.ArchSystem.isArchLinux()) 
+            system.ArchSystem.init(allocator) 
+        else 
+            null;
+        
         // Select best provider for chat completion (default behavior)
         const best_provider = try provider_manager.selectBestProvider(.chat_completion) orelse .ghostllm;
         
@@ -68,6 +88,9 @@ pub const Zeke = struct {
             .api_client = api_client,
             .provider_manager = provider_manager,
             .fallback_manager = fallback_manager,
+            .context_cache = context_cache,
+            .concurrent_ai = concurrent_ai,
+            .arch_system = arch_system,
             .realtime_features = null, // Initialized on demand
             .current_model = zeke_config.default_model,
             .current_provider = best_provider,
@@ -80,6 +103,11 @@ pub const Zeke = struct {
         self.api_client.deinit();
         self.provider_manager.deinit();
         self.fallback_manager.deinit();
+        self.context_cache.deinit();
+        self.concurrent_ai.deinit();
+        if (self.arch_system) |*arch| {
+            arch.deinit();
+        }
         if (self.realtime_features) |*rt| {
             rt.deinit();
         }
@@ -134,8 +162,8 @@ pub const Zeke = struct {
         return response.content;
     }
     
-    pub fn completeCode(self: *Self, prompt: []const u8, context: api.CodeContext) ![]const u8 {
-        const response = try self.api_client.codeCompletion(prompt, context);
+    pub fn completeCode(self: *Self, prompt: []const u8, code_context: api.CodeContext) ![]const u8 {
+        const response = try self.api_client.codeCompletion(prompt, code_context);
         return response.text;
     }
     
@@ -153,20 +181,20 @@ pub const Zeke = struct {
     }
     
     // GhostLLM-specific methods for enhanced AI capabilities
-    pub fn analyzeCode(self: *Self, file_contents: []const u8, analysis_type: api.AnalysisType, context: api.ProjectContext) !api.AnalysisResponse {
-        return try self.api_client.analyzeCode(file_contents, analysis_type, context);
+    pub fn analyzeCode(self: *Self, file_contents: []const u8, analysis_type: api.AnalysisType, project_context: api.ProjectContext) !api.AnalysisResponse {
+        return try self.api_client.analyzeCode(file_contents, analysis_type, project_context);
     }
     
-    pub fn explainCode(self: *Self, code: []const u8, context: api.CodeContext) !api.ExplanationResponse {
-        return try self.api_client.explainCode(code, context);
+    pub fn explainCode(self: *Self, code: []const u8, code_context: api.CodeContext) !api.ExplanationResponse {
+        return try self.api_client.explainCode(code, code_context);
     }
     
-    pub fn refactorCode(self: *Self, code: []const u8, refactor_type: api.RefactorType, context: api.CodeContext) !api.RefactorResponse {
-        return try self.api_client.refactorCode(code, refactor_type, context);
+    pub fn refactorCode(self: *Self, code: []const u8, refactor_type: api.RefactorType, code_context: api.CodeContext) !api.RefactorResponse {
+        return try self.api_client.refactorCode(code, refactor_type, code_context);
     }
     
-    pub fn generateTests(self: *Self, code: []const u8, context: api.CodeContext) !api.TestResponse {
-        return try self.api_client.generateTests(code, context);
+    pub fn generateTests(self: *Self, code: []const u8, code_context: api.CodeContext) !api.TestResponse {
+        return try self.api_client.generateTests(code, code_context);
     }
     
     pub fn setGhostLLMEndpoint(self: *Self, endpoint: []const u8) !void {
@@ -260,20 +288,20 @@ pub const Zeke = struct {
         return result;
     }
     
-    pub fn analyzeCodeWithBestProvider(self: *Self, file_contents: []const u8, analysis_type: api.AnalysisType, context: api.ProjectContext) !api.AnalysisResponse {
+    pub fn analyzeCodeWithBestProvider(self: *Self, file_contents: []const u8, analysis_type: api.AnalysisType, project_context: api.ProjectContext) !api.AnalysisResponse {
         // Select best provider for code analysis
         const best_provider = try self.selectBestProviderForTask(.code_analysis);
         try self.switchToProvider(best_provider);
         
-        return try self.analyzeCode(file_contents, analysis_type, context);
+        return try self.analyzeCode(file_contents, analysis_type, project_context);
     }
     
-    pub fn explainCodeWithBestProvider(self: *Self, code: []const u8, context: api.CodeContext) !api.ExplanationResponse {
+    pub fn explainCodeWithBestProvider(self: *Self, code: []const u8, code_context: api.CodeContext) !api.ExplanationResponse {
         // Select best provider for code explanation
         const best_provider = try self.selectBestProviderForTask(.code_explanation);
         try self.switchToProvider(best_provider);
         
-        return try self.explainCode(code, context);
+        return try self.explainCode(code, code_context);
     }
     
     pub fn getProviderStatus(self: *Self) ![]providers.ProviderHealth {
@@ -404,14 +432,14 @@ pub const Zeke = struct {
         }
     }
     
-    pub fn streamCodeCompletion(self: *Self, prompt: []const u8, context: api.CodeContext, callback: streaming.StreamCallback) !void {
+    pub fn streamCodeCompletion(self: *Self, prompt: []const u8, code_context: api.CodeContext, callback: streaming.StreamCallback) !void {
         // Ensure real-time features are enabled
         try self.enableRealTimeFeatures();
         
         const endpoint = try std.fmt.allocPrint(self.allocator, "{s}/v1/completions", .{self.api_client.base_url});
         defer self.allocator.free(endpoint);
         
-        const request_body = try self.buildStreamingCompletionRequest(prompt, context);
+        const request_body = try self.buildStreamingCompletionRequest(prompt, code_context);
         defer self.allocator.free(request_body);
         
         // Prepare headers (similar to streamChat)
@@ -470,13 +498,158 @@ pub const Zeke = struct {
         return request.toOwnedSlice();
     }
     
-    fn buildStreamingCompletionRequest(self: *Self, prompt: []const u8, context: api.CodeContext) ![]const u8 {
-        const language = context.language orelse "text";
+    fn buildStreamingCompletionRequest(self: *Self, prompt: []const u8, code_context: api.CodeContext) ![]const u8 {
+        const language = code_context.language orelse "text";
         
         return try std.fmt.allocPrint(self.allocator,
             "{{\"prompt\":\"{s}\",\"language\":\"{s}\",\"stream\":true,\"max_tokens\":150}}",
             .{ prompt, language }
         );
+    }
+    
+    // Enhanced AI Methods with concurrent support
+    pub fn parallelChat(self: *Self, message: []const u8, provider_list: []const api.ApiProvider) ![]const u8 {
+        const messages = [_]api.ChatMessage{
+            .{ .role = "user", .content = message },
+        };
+        
+        return try self.concurrent_ai.parallelChat(&messages, self.current_model, provider_list);
+    }
+    
+    pub fn parallelAnalysis(self: *Self, file_path: []const u8, analysis_type: api.AnalysisType) !api.AnalysisResponse {
+        const file_contents = std.fs.cwd().readFileAlloc(self.allocator, file_path, 1024 * 1024) catch |err| {
+            std.log.err("Failed to read file {s}: {}", .{file_path, err});
+            return err;
+        };
+        defer self.allocator.free(file_contents);
+        
+        // Cache file context if not already cached
+        try self.context_cache.cacheContext(file_path, file_contents);
+        
+        const project_context = api.ProjectContext{
+            .project_path = std.fs.cwd().realpathAlloc(self.allocator, ".") catch null,
+            .git_info = null,
+            .dependencies = null,
+            .framework = null,
+        };
+        
+        const provider_list = [_]api.ApiProvider{ .ghostllm, .claude, .openai };
+        return try self.concurrent_ai.parallelAnalysis(file_contents, analysis_type, project_context, &provider_list);
+    }
+    
+    pub fn intelligentCodeCompletion(self: *Self, code: []const u8, file_path: []const u8) ![]const u8 {
+        // Get cached context for better completion
+        const cached_context = self.context_cache.getContext(file_path);
+        
+        var code_context = api.CodeContext{
+            .file_path = file_path,
+            .language = null,
+            .cursor_position = null,
+            .surrounding_code = null,
+        };
+        
+        if (cached_context) |ctx| {
+            code_context.language = ctx.language;
+        }
+        
+        return try self.completeCode(code, code_context);
+    }
+    
+    pub fn analyzeProjectStructure(self: *Self, project_path: []const u8) !void {
+        try self.context_cache.analyzeProject(project_path);
+    }
+    
+    pub fn getCacheStats(self: *const Self) context.ProjectContextCache.CacheStats {
+        return self.context_cache.getCacheStats();
+    }
+    
+    pub fn getRelatedFiles(self: *Self, file_path: []const u8) ![][]const u8 {
+        return try self.context_cache.getRelatedFiles(file_path, self.allocator);
+    }
+    
+    // Arch Linux system integration methods
+    pub fn getSystemInfo(self: *Self) !?system.SystemInfo {
+        if (self.arch_system) |*arch| {
+            return try arch.getSystemInfo();
+        }
+        return null;
+    }
+    
+    pub fn checkSystemUpdates(self: *Self) ![]system.PackageUpdate {
+        if (self.arch_system) |*arch| {
+            return try arch.checkUpdates();
+        }
+        return &[_]system.PackageUpdate{};
+    }
+    
+    pub fn createSystemSnapshot(self: *Self, name: []const u8) !void {
+        if (self.arch_system) |*arch| {
+            try arch.createSnapshot(name);
+        } else {
+            return error.ArchSystemNotAvailable;
+        }
+    }
+    
+    pub fn listSystemSnapshots(self: *Self) ![][]const u8 {
+        if (self.arch_system) |*arch| {
+            return try arch.listSnapshots();
+        }
+        return &[_][]const u8{};
+    }
+    
+    pub fn runSystemMaintenance(self: *Self, options: system.MaintenanceOptions) !void {
+        if (self.arch_system) |*arch| {
+            try arch.runMaintenance(options);
+        } else {
+            return error.ArchSystemNotAvailable;
+        }
+    }
+    
+    pub fn getConcurrentStats(self: *const Self) concurrent.ConcurrentRequestHandler.RequestStats {
+        return self.concurrent_ai.getStats();
+    }
+    
+    pub fn cleanupConcurrentTasks(self: *Self) !void {
+        try self.concurrent_ai.cleanup();
+    }
+    
+    // WASM preparation methods
+    pub fn prepareForWASM(self: *Self) !void {
+        // Prepare the system for WASM compilation
+        std.log.info("Preparing ZEKE for WASM compilation...", .{});
+        
+        // Ensure all allocations are properly tracked
+        try self.context_cache.clearCache();
+        
+        // Optimize provider selection for WASM constraints
+        const wasm_friendly_providers = [_]api.ApiProvider{ .ghostllm, .ollama };
+        const best_provider = try self.provider_manager.selectBestProvider(.chat_completion);
+        
+        if (best_provider) |provider| {
+            var is_wasm_friendly = false;
+            for (wasm_friendly_providers) |wasm_provider| {
+                if (provider == wasm_provider) {
+                    is_wasm_friendly = true;
+                    break;
+                }
+            }
+            
+            if (!is_wasm_friendly) {
+                std.log.warn("Current provider {} may not be optimal for WASM", .{provider});
+                // Switch to a more WASM-friendly provider
+                try self.switchToProvider(.ghostllm);
+            }
+        }
+        
+        std.log.info("WASM preparation complete", .{});
+    }
+    
+    // Enhanced terminal/CLI mode
+    pub fn launchTUI(self: *Self) !void {
+        var tui_app = try tui.TuiApp.init(self.allocator, self);
+        defer tui_app.deinit();
+        
+        try tui_app.run();
     }
 };
 

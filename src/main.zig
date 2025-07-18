@@ -1,6 +1,9 @@
 const std = @import("std");
 const flash = @import("flash");
 const zeke = @import("zeke");
+const formatting = @import("formatting.zig");
+const file_ops = @import("file_ops.zig");
+const cli_streaming = @import("cli_streaming.zig");
 
 // Simple command structure for ZEKE AI
 const ZekeCommand = struct {
@@ -161,29 +164,145 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, command, "tui")) {
         std.debug.print("🚧 TUI mode temporarily disabled while fixing dependencies\n", .{});
         std.debug.print("💡 Use the command-line interface for now!\n", .{});
+    } else if (std.mem.eql(u8, command, "nvim")) {
+        if (args.len > 2) {
+            try handleNvimCommand(&zeke_instance, allocator, args[2..]);
+        } else {
+            std.debug.print("Usage: zeke nvim <subcommand>\n", .{});
+            std.debug.print("Subcommands: --rpc, chat, edit, explain, create, analyze\n", .{});
+        }
+    } else if (std.mem.eql(u8, command, "file")) {
+        if (args.len > 2) {
+            try handleFileCommand(&zeke_instance, allocator, args[2..]);
+        } else {
+            std.debug.print("Usage: zeke file <subcommand>\n", .{});
+            std.debug.print("Subcommands: read, write, edit, generate\n", .{});
+        }
+    } else if (std.mem.eql(u8, command, "stream")) {
+        if (args.len > 2) {
+            try handleStreamingCommand(&zeke_instance, allocator, args[2..]);
+        } else {
+            std.debug.print("Usage: zeke stream <subcommand>\n", .{});
+            std.debug.print("Subcommands: chat, demo\n", .{});
+        }
     } else {
         try printUsage();
     }
 }
 
+fn handleStreamingCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    if (args.len == 0) {
+        std.debug.print("Usage: zeke stream <subcommand>\n", .{});
+        return;
+    }
+    
+    const subcommand = args[0];
+    
+    if (std.mem.eql(u8, subcommand, "chat")) {
+        if (args.len > 1) {
+            try cli_streaming.handleStreamingChat(zeke_instance, allocator, args[1]);
+        } else {
+            std.debug.print("Usage: zeke stream chat <message>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "demo")) {
+        // Demo streaming with a sample response
+        const sample_response = "This is a demonstration of Zeke's streaming capabilities. " ++
+            "The text appears character by character to simulate real-time AI response generation. " ++
+            "This creates a more interactive and engaging user experience!";
+        
+        try cli_streaming.simulateStreamingResponse(allocator, sample_response);
+    } else {
+        std.debug.print("Unknown streaming subcommand: {s}\n", .{subcommand});
+        std.debug.print("Available: chat, demo\n", .{});
+    }
+}
+
+fn handleFileCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    if (args.len == 0) {
+        std.debug.print("Usage: zeke file <subcommand>\n", .{});
+        return;
+    }
+    
+    const subcommand = args[0];
+    
+    if (std.mem.eql(u8, subcommand, "read")) {
+        if (args.len > 1) {
+            try file_ops.handleFileRead(allocator, args[1]);
+        } else {
+            std.debug.print("Usage: zeke file read <file_path>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "write")) {
+        if (args.len > 2) {
+            try file_ops.handleFileWrite(allocator, args[1], args[2]);
+        } else {
+            std.debug.print("Usage: zeke file write <file_path> <content>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "edit")) {
+        if (args.len > 2) {
+            try file_ops.handleFileEdit(zeke_instance, allocator, args[1], args[2]);
+        } else {
+            std.debug.print("Usage: zeke file edit <file_path> <instruction>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "generate")) {
+        if (args.len > 2) {
+            try file_ops.handleFileGenerate(zeke_instance, allocator, args[1], args[2]);
+        } else {
+            std.debug.print("Usage: zeke file generate <file_path> <description>\n", .{});
+        }
+    } else {
+        std.debug.print("Unknown file subcommand: {s}\n", .{subcommand});
+        std.debug.print("Available: read, write, edit, generate\n", .{});
+    }
+}
+
 fn handleChat(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, message: []const u8) !void {
+    var formatter = formatting.Formatter.init(allocator, .plain);
+    
     const response = zeke_instance.chat(message) catch |err| {
-        std.log.err("Chat failed: {}", .{err});
+        const error_msg = try std.fmt.allocPrint(allocator, "Chat failed: {}", .{err});
+        
+        const formatted_error = if (error_msg.len > 0) 
+            try formatter.formatError(error_msg) 
+        else 
+            try formatter.formatError("Unknown error occurred");
+        
+        defer allocator.free(formatted_error);
+        defer allocator.free(error_msg);
+        
+        std.debug.print("{s}", .{formatted_error});
         return;
     };
     defer allocator.free(response);
     
-    std.debug.print("🤖 ZEKE: {s}\n", .{response});
+    const formatted_response = try formatter.formatResponse(response);
+    defer allocator.free(formatted_response);
+    
+    std.debug.print("{s}", .{formatted_response});
 }
 
 fn handleAsk(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, question: []const u8) !void {
+    var formatter = formatting.Formatter.init(allocator, .plain);
+    
     const response = zeke_instance.chat(question) catch |err| {
-        std.log.err("Ask failed: {}", .{err});
+        const error_msg = try std.fmt.allocPrint(allocator, "Ask failed: {}", .{err});
+        
+        const formatted_error = if (error_msg.len > 0) 
+            try formatter.formatError(error_msg) 
+        else 
+            try formatter.formatError("Unknown error occurred");
+        
+        defer allocator.free(formatted_error);
+        defer allocator.free(error_msg);
+        
+        std.debug.print("{s}", .{formatted_error});
         return;
     };
     defer allocator.free(response);
     
-    std.debug.print("🤖 ZEKE: {s}\n", .{response});
+    const formatted_response = try formatter.formatResponse(response);
+    defer allocator.free(formatted_response);
+    
+    std.debug.print("{s}", .{formatted_response});
 }
 
 fn handleExplain(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, code: []const u8, language: ?[]const u8) !void {
@@ -558,8 +677,7 @@ fn handleSmartExplain(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, c
 }
 
 fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
-    const tui = @import("tui/mod.zig");
-    var tui_app = tui.TuiApp.init(allocator, zeke_instance) catch |err| {
+    var tui_app = zeke.tui.TuiApp.init(allocator, zeke_instance) catch |err| {
         std.log.err("Failed to initialize TUI: {}", .{err});
         return;
     };
@@ -569,6 +687,243 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
         std.log.err("TUI error: {}", .{err});
         return;
     };
+}
+
+fn handleNvimCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    if (args.len == 0) {
+        std.debug.print("Usage: zeke nvim <subcommand>\n", .{});
+        return;
+    }
+    
+    const subcommand = args[0];
+    
+    if (std.mem.eql(u8, subcommand, "--rpc")) {
+        // RPC server temporarily disabled - use CLI commands instead
+        std.debug.print("RPC server temporarily disabled. Use CLI commands instead:\n", .{});
+        std.debug.print("  zeke nvim chat \"message\"\n", .{});
+        std.debug.print("  zeke nvim edit \"code\" \"instruction\"\n", .{});
+        std.debug.print("  zeke nvim explain \"code\"\n", .{});
+        std.debug.print("  zeke nvim create \"description\"\n", .{});
+        std.debug.print("  zeke nvim analyze \"code\" \"type\"\n", .{});
+    } else if (std.mem.eql(u8, subcommand, "chat")) {
+        if (args.len > 1) {
+            try handleNvimChat(zeke_instance, allocator, args[1]);
+        } else {
+            std.debug.print("Usage: zeke nvim chat <message>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "edit")) {
+        if (args.len > 2) {
+            try handleNvimEdit(zeke_instance, allocator, args[1], args[2]);
+        } else {
+            std.debug.print("Usage: zeke nvim edit <code> <instruction>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "explain")) {
+        if (args.len > 1) {
+            try handleNvimExplain(zeke_instance, allocator, args[1]);
+        } else {
+            std.debug.print("Usage: zeke nvim explain <code>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "create")) {
+        if (args.len > 1) {
+            try handleNvimCreate(zeke_instance, allocator, args[1]);
+        } else {
+            std.debug.print("Usage: zeke nvim create <description>\n", .{});
+        }
+    } else if (std.mem.eql(u8, subcommand, "analyze")) {
+        if (args.len > 2) {
+            try handleNvimAnalyze(zeke_instance, allocator, args[1], args[2]);
+        } else {
+            std.debug.print("Usage: zeke nvim analyze <code> <type>\n", .{});
+        }
+    } else {
+        std.debug.print("Unknown nvim subcommand: {s}\n", .{subcommand});
+        std.debug.print("Available: --rpc, chat, edit, explain, create, analyze\n", .{});
+    }
+}
+
+fn handleRPCServer(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
+    std.debug.print("🚀 Starting ZEKE MessagePack-RPC server...\n", .{});
+    
+    var rpc_server = try zeke.rpc.MsgPackRPC.init(allocator, zeke_instance);
+    defer rpc_server.deinit();
+    
+    // Set up signal handling for graceful shutdown
+    const SignalHandler = struct {
+        server: *zeke.rpc.MsgPackRPC,
+        
+        fn handle(self: @This()) void {
+            std.debug.print("\n🛑 Received shutdown signal, stopping RPC server...\n", .{});
+            self.server.stop();
+        }
+    };
+    
+    const signal_handler = SignalHandler{ .server = &rpc_server };
+    _ = signal_handler; // TODO: Set up actual signal handling
+    
+    // Start the RPC server
+    try rpc_server.start();
+    
+    std.debug.print("✅ RPC server stopped\n", .{});
+}
+
+fn handleNvimChat(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, message: []const u8) !void {
+    const response = zeke_instance.chat(message) catch |err| {
+        const error_msg = try std.fmt.allocPrint(allocator, "Chat failed: {}", .{err});
+        defer allocator.free(error_msg);
+        
+        const json_response = try std.fmt.allocPrint(allocator, 
+            "{{\"success\": false, \"error\": \"{s}\", \"content\": null}}", 
+            .{error_msg}
+        );
+        defer allocator.free(json_response);
+        
+        std.debug.print("{s}\n", .{json_response});
+        return;
+    };
+    defer allocator.free(response);
+    
+    const json_response = try std.fmt.allocPrint(allocator, 
+        "{{\"success\": true, \"error\": null, \"content\": \"{s}\"}}", 
+        .{response}
+    );
+    defer allocator.free(json_response);
+    
+    std.debug.print("{s}\n", .{json_response});
+}
+
+fn handleNvimEdit(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, code: []const u8, instruction: []const u8) !void {
+    const edit_prompt = try std.fmt.allocPrint(allocator, 
+        "Edit this code according to the instruction.\n\nInstruction: {s}\n\nCode:\n{s}", 
+        .{ instruction, code });
+    defer allocator.free(edit_prompt);
+    
+    const response = zeke_instance.chat(edit_prompt) catch |err| {
+        const error_msg = try std.fmt.allocPrint(allocator, "Edit failed: {}", .{err});
+        defer allocator.free(error_msg);
+        
+        const json_response = try std.fmt.allocPrint(allocator, 
+            "{{\"success\": false, \"error\": \"{s}\", \"content\": null}}", 
+            .{error_msg}
+        );
+        defer allocator.free(json_response);
+        
+        std.debug.print("{s}\n", .{json_response});
+        return;
+    };
+    defer allocator.free(response);
+    
+    const json_response = try std.fmt.allocPrint(allocator, 
+        "{{\"success\": true, \"error\": null, \"content\": \"{s}\"}}", 
+        .{response}
+    );
+    defer allocator.free(json_response);
+    
+    std.debug.print("{s}\n", .{json_response});
+}
+
+fn handleNvimExplain(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, code: []const u8) !void {
+    const context = zeke.api.CodeContext{
+        .file_path = null,
+        .language = null,
+        .cursor_position = null,
+        .surrounding_code = null,
+    };
+    
+    var explanation = zeke_instance.explainCode(code, context) catch |err| {
+        const error_msg = try std.fmt.allocPrint(allocator, "Explain failed: {}", .{err});
+        defer allocator.free(error_msg);
+        
+        const json_response = try std.fmt.allocPrint(allocator, 
+            "{{\"success\": false, \"error\": \"{s}\", \"content\": null}}", 
+            .{error_msg}
+        );
+        defer allocator.free(json_response);
+        
+        std.debug.print("{s}\n", .{json_response});
+        return;
+    };
+    defer explanation.deinit(allocator);
+    
+    const json_response = try std.fmt.allocPrint(allocator, 
+        "{{\"success\": true, \"error\": null, \"content\": \"{s}\"}}", 
+        .{explanation.explanation}
+    );
+    defer allocator.free(json_response);
+    
+    std.debug.print("{s}\n", .{json_response});
+}
+
+fn handleNvimCreate(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, description: []const u8) !void {
+    const create_prompt = try std.fmt.allocPrint(allocator, 
+        "Create a file with the following description: {s}", 
+        .{description});
+    defer allocator.free(create_prompt);
+    
+    const response = zeke_instance.chat(create_prompt) catch |err| {
+        const error_msg = try std.fmt.allocPrint(allocator, "Create failed: {}", .{err});
+        defer allocator.free(error_msg);
+        
+        const json_response = try std.fmt.allocPrint(allocator, 
+            "{{\"success\": false, \"error\": \"{s}\", \"content\": null}}", 
+            .{error_msg}
+        );
+        defer allocator.free(json_response);
+        
+        std.debug.print("{s}\n", .{json_response});
+        return;
+    };
+    defer allocator.free(response);
+    
+    const json_response = try std.fmt.allocPrint(allocator, 
+        "{{\"success\": true, \"error\": null, \"content\": \"{s}\"}}", 
+        .{response}
+    );
+    defer allocator.free(json_response);
+    
+    std.debug.print("{s}\n", .{json_response});
+}
+
+fn handleNvimAnalyze(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, code: []const u8, analysis_type_str: []const u8) !void {
+    const analysis_type = if (std.mem.eql(u8, analysis_type_str, "performance"))
+        zeke.api.AnalysisType.performance
+    else if (std.mem.eql(u8, analysis_type_str, "security"))
+        zeke.api.AnalysisType.security
+    else if (std.mem.eql(u8, analysis_type_str, "style"))
+        zeke.api.AnalysisType.style
+    else if (std.mem.eql(u8, analysis_type_str, "architecture"))
+        zeke.api.AnalysisType.architecture
+    else
+        zeke.api.AnalysisType.quality;
+    
+    const project_context = zeke.api.ProjectContext{
+        .project_path = std.fs.cwd().realpathAlloc(allocator, ".") catch null,
+        .git_info = null,
+        .dependencies = null,
+        .framework = null,
+    };
+    
+    var analysis = zeke_instance.analyzeCode(code, analysis_type, project_context) catch |err| {
+        const error_msg = try std.fmt.allocPrint(allocator, "Analysis failed: {}", .{err});
+        defer allocator.free(error_msg);
+        
+        const json_response = try std.fmt.allocPrint(allocator, 
+            "{{\"success\": false, \"error\": \"{s}\", \"content\": null}}", 
+            .{error_msg}
+        );
+        defer allocator.free(json_response);
+        
+        std.debug.print("{s}\n", .{json_response});
+        return;
+    };
+    defer analysis.deinit(allocator);
+    
+    const json_response = try std.fmt.allocPrint(allocator, 
+        "{{\"success\": true, \"error\": null, \"content\": \"{s}\"}}", 
+        .{analysis.analysis}
+    );
+    defer allocator.free(json_response);
+    
+    std.debug.print("{s}\n", .{json_response});
 }
 
 fn printUsage() !void {
@@ -592,11 +947,24 @@ fn printUsage() !void {
     std.debug.print("  zeke provider status                  - Show provider health\n", .{});
     std.debug.print("  zeke provider list                    - List all providers\n", .{});
     std.debug.print("\n🌊 Streaming & Real-Time:\n", .{});
-    std.debug.print("  zeke stream \"message\"                - Stream AI response\n", .{});
+    std.debug.print("  zeke stream chat \"message\"           - Stream AI response in real-time\n", .{});
+    std.debug.print("  zeke stream demo                      - Demo streaming capabilities\n", .{});
     std.debug.print("  zeke realtime enable                  - Enable real-time features\n", .{});
     std.debug.print("\n🧠 Smart Features:\n", .{});
     std.debug.print("  zeke smart analyze <file> [type]      - Smart code analysis\n", .{});
     std.debug.print("  zeke smart explain \"code\" [lang]     - Smart code explanation\n", .{});
+    std.debug.print("\n📁 File Operations:\n", .{});
+    std.debug.print("  zeke file read <file_path>            - Read and display file\n", .{});
+    std.debug.print("  zeke file write <file_path> <content> - Write content to file\n", .{});
+    std.debug.print("  zeke file edit <file_path> <instruction> - Edit file with AI\n", .{});
+    std.debug.print("  zeke file generate <file_path> <description> - Generate file with AI\n", .{});
+    std.debug.print("\n🔌 Neovim Integration:\n", .{});
+    std.debug.print("  zeke nvim --rpc                       - Start MessagePack-RPC server\n", .{});
+    std.debug.print("  zeke nvim chat \"message\"              - Chat with context\n", .{});
+    std.debug.print("  zeke nvim edit \"code\" \"instruction\"  - Edit code inline\n", .{});
+    std.debug.print("  zeke nvim explain \"code\"              - Explain code\n", .{});
+    std.debug.print("  zeke nvim create \"description\"        - Create file\n", .{});
+    std.debug.print("  zeke nvim analyze \"code\" <type>       - Analyze code\n", .{});
     std.debug.print("\n⚙️ Configuration:\n", .{});
     std.debug.print("  zeke model [name | list]              - Switch/view models\n", .{});
     std.debug.print("  zeke tui                              - Launch TUI interface\n", .{});

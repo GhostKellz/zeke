@@ -14,16 +14,162 @@ pub const StreamChunk = struct {
 
 pub const StreamCallback = *const fn (chunk: StreamChunk) void;
 
+/// High-performance ring buffer for streaming data
+pub const RingBuffer = struct {
+    allocator: std.mem.Allocator,
+    buffer: []u8,
+    read_pos: usize,
+    write_pos: usize,
+    size: usize,
+    capacity: usize,
+    
+    const Self = @This();
+    
+    pub fn init(allocator: std.mem.Allocator, capacity: usize) Self {
+        const buffer = allocator.alloc(u8, capacity) catch @panic("Failed to allocate ring buffer");
+        return Self{
+            .allocator = allocator,
+            .buffer = buffer,
+            .read_pos = 0,
+            .write_pos = 0,
+            .size = 0,
+            .capacity = capacity,
+        };
+    }
+    
+    pub fn deinit(self: *Self) void {
+        self.allocator.free(self.buffer);
+    }
+    
+    pub fn write(self: *Self, data: []const u8) !usize {
+        if (data.len > self.capacity - self.size) {
+            // Not enough space, expand buffer or return error
+            if (self.size + data.len > self.capacity * 2) {
+                return error.BufferOverflow;
+            }
+            try self.expand();
+        }
+        
+        var bytes_written: usize = 0;
+        for (data) |byte| {
+            self.buffer[self.write_pos] = byte;
+            self.write_pos = (self.write_pos + 1) % self.capacity;
+            bytes_written += 1;
+        }
+        
+        self.size += bytes_written;
+        return bytes_written;
+    }
+    
+    pub fn read(self: *Self, dest: []u8) usize {
+        const bytes_to_read = @min(dest.len, self.size);
+        var bytes_read: usize = 0;
+        
+        for (0..bytes_to_read) |i| {
+            dest[i] = self.buffer[self.read_pos];
+            self.read_pos = (self.read_pos + 1) % self.capacity;
+            bytes_read += 1;
+        }
+        
+        self.size -= bytes_read;
+        return bytes_read;
+    }
+    
+    pub fn peek(self: *const Self, dest: []u8) usize {
+        const bytes_to_peek = @min(dest.len, self.size);
+        var peek_pos = self.read_pos;
+        
+        for (0..bytes_to_peek) |i| {
+            dest[i] = self.buffer[peek_pos];
+            peek_pos = (peek_pos + 1) % self.capacity;
+        }
+        
+        return bytes_to_peek;
+    }
+    
+    pub fn findPattern(self: *const Self, pattern: []const u8) ?usize {
+        if (pattern.len > self.size) return null;
+        
+        const search_buffer = self.allocator.alloc(u8, self.size) catch return null;
+        defer self.allocator.free(search_buffer);
+        
+        _ = self.peek(search_buffer);
+        return std.mem.indexOf(u8, search_buffer, pattern);
+    }
+    
+    pub fn consumeUntil(self: *Self, pattern: []const u8, dest: []u8) ?usize {
+        if (self.findPattern(pattern)) |pattern_pos| {
+            const consume_length = pattern_pos + pattern.len;
+            const bytes_to_copy = @min(dest.len, consume_length);
+            
+            const bytes_read = self.read(dest[0..bytes_to_copy]);
+            
+            // Skip remaining bytes if dest is too small
+            if (bytes_to_copy < consume_length) {
+                var skip_buffer: [256]u8 = undefined;
+                var remaining = consume_length - bytes_to_copy;
+                
+                while (remaining > 0) {
+                    const to_skip = @min(skip_buffer.len, remaining);
+                    const skipped = self.read(skip_buffer[0..to_skip]);
+                    remaining -= skipped;
+                    if (skipped == 0) break;
+                }
+            }
+            
+            return bytes_read;
+        }
+        
+        return null;
+    }
+    
+    pub fn available(self: *const Self) usize {
+        return self.size;
+    }
+    
+    pub fn getCapacity(self: *const Self) usize {
+        return self.capacity;
+    }
+    
+    pub fn isEmpty(self: *const Self) bool {
+        return self.size == 0;
+    }
+    
+    pub fn isFull(self: *const Self) bool {
+        return self.size == self.capacity;
+    }
+    
+    fn expand(self: *Self) !void {
+        const new_capacity = self.capacity * 2;
+        const new_buffer = try self.allocator.alloc(u8, new_capacity);
+        
+        // Copy existing data to new buffer
+        var copied: usize = 0;
+        while (copied < self.size) {
+            new_buffer[copied] = self.buffer[self.read_pos];
+            self.read_pos = (self.read_pos + 1) % self.capacity;
+            copied += 1;
+        }
+        
+        // Free old buffer and update
+        self.allocator.free(self.buffer);
+        self.buffer = new_buffer;
+        self.capacity = new_capacity;
+        self.read_pos = 0;
+        self.write_pos = self.size;
+    }
+};
+
 pub const SSEParser = struct {
     allocator: std.mem.Allocator,
-    buffer: std.ArrayList(u8),
+    buffer: RingBuffer,
     
     const Self = @This();
     
     pub fn init(allocator: std.mem.Allocator) Self {
         return Self{
             .allocator = allocator,
-            .buffer = std.ArrayList(u8).init(allocator),
+            .buffer = RingBuffer.init(allocator, 16384), // 16KB ring buffer
         };
     }
     
@@ -32,21 +178,17 @@ pub const SSEParser = struct {
     }
     
     pub fn parseChunk(self: *Self, data: []const u8, callback: StreamCallback) !void {
-        try self.buffer.appendSlice(data);
+        _ = try self.buffer.write(data);
         
         // Process complete SSE events
-        while (std.mem.indexOf(u8, self.buffer.items, "\n\n")) |event_end| {
-            const event_data = self.buffer.items[0..event_end];
+        var event_buffer: [8192]u8 = undefined;
+        while (self.buffer.consumeUntil("\n\n", &event_buffer)) |event_len| {
+            const event_data = event_buffer[0..event_len - 2]; // Remove \n\n
             
             // Parse the SSE event
             if (try self.parseSSEEvent(event_data)) |chunk| {
                 callback(chunk);
             }
-            
-            // Remove processed event from buffer
-            const remaining = self.buffer.items[event_end + 2..];
-            self.buffer.clearAndFree();
-            try self.buffer.appendSlice(remaining);
         }
     }
     
@@ -212,9 +354,7 @@ pub const StreamingClient = struct {
     }
     
     fn handleStreamingResponse(self: *Self, request: *std.http.Client.Request, callback: StreamCallback) !void {
-        var buffer: [4096]u8 = undefined;
-        var stream_buffer = std.ArrayList(u8).init(self.allocator);
-        defer stream_buffer.deinit();
+        var buffer: [8192]u8 = undefined; // Larger buffer for better performance
         
         // Read streaming data
         while (true) {
@@ -226,13 +366,8 @@ pub const StreamingClient = struct {
             
             if (bytes_read == 0) break;
             
-            try stream_buffer.appendSlice(buffer[0..bytes_read]);
-            
-            // Process complete SSE events
-            try self.sse_parser.parseChunk(stream_buffer.items, callback);
-            
-            // Clear processed data
-            stream_buffer.clearRetainingCapacity();
+            // Process chunks directly without intermediate buffer
+            try self.sse_parser.parseChunk(buffer[0..bytes_read], callback);
         }
         
         // Send final chunk
