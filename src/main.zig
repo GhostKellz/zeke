@@ -4,6 +4,7 @@ const zeke = @import("zeke");
 const formatting = @import("formatting.zig");
 const file_ops = @import("file_ops.zig");
 const cli_streaming = @import("cli_streaming.zig");
+const agent = @import("agent/mod.zig");
 
 // Simple command structure for ZEKE AI
 const ZekeCommand = struct {
@@ -185,8 +186,112 @@ pub fn main() !void {
             std.debug.print("Usage: zeke stream <subcommand>\n", .{});
             std.debug.print("Subcommands: chat, demo\n", .{});
         }
+    } else if (std.mem.eql(u8, command, "agent")) {
+        if (args.len > 2) {
+            try handleAgentCommand(&zeke_instance, allocator, args[2..]);
+        } else {
+            std.debug.print("Usage: zeke agent <subcommand>\n", .{});
+            std.debug.print("Subcommands: blockchain, smartcontract, network, security\n", .{});
+        }
     } else {
         try printUsage();
+    }
+}
+
+fn handleAgentCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    _ = zeke_instance;
+    
+    if (args.len == 0) {
+        std.debug.print("Usage: zeke agent <agent_type> <command> [args...]\n", .{});
+        std.debug.print("Agent Types: blockchain, smartcontract, network, security\n", .{});
+        return;
+    }
+    
+    const agent_type_str = args[0];
+    
+    // Initialize agent manager
+    var agent_manager = agent.AgentManager.init(allocator);
+    defer agent_manager.deinit();
+    
+    if (std.mem.eql(u8, agent_type_str, "blockchain")) {
+        var blockchain_agent = agent.blockchain.BlockchainAgent.init(allocator, "http://localhost:8545", 1337);
+        try agent_manager.registerAgent(&blockchain_agent.agent);
+        
+        if (args.len > 1) {
+            const command = args[1];
+            const command_args = if (args.len > 2) args[2..] else &[_][:0]u8{};
+            
+            const result = try agent_manager.executeCommand(.blockchain, command, command_args);
+            if (result.success) {
+                std.debug.print("✅ {s}\n", .{result.message});
+            } else {
+                std.debug.print("❌ {s}\n", .{result.message});
+            }
+        } else {
+            std.debug.print("Available blockchain commands: status, balance, block, gas, health, monitor\n", .{});
+        }
+    } else if (std.mem.eql(u8, agent_type_str, "smartcontract")) {
+        var rpc_client = agent.blockchain.RpcClient.init(allocator, "http://localhost:8545");
+        var smartcontract_agent = agent.smartcontract.SmartContractAgent.init(allocator, &rpc_client);
+        try agent_manager.registerAgent(&smartcontract_agent.agent);
+        
+        if (args.len > 1) {
+            const command = args[1];
+            const command_args = if (args.len > 2) args[2..] else &[_][:0]u8{};
+            
+            const result = try agent_manager.executeCommand(.smartcontract, command, command_args);
+            if (result.success) {
+                std.debug.print("✅ {s}\n", .{result.message});
+            } else {
+                std.debug.print("❌ {s}\n", .{result.message});
+            }
+        } else {
+            std.debug.print("Available smartcontract commands: deploy, call, send, audit, estimate, events, code\n", .{});
+        }
+    } else if (std.mem.eql(u8, agent_type_str, "network")) {
+        var network_agent = agent.network.NetworkAgent.init(allocator);
+        try agent_manager.registerAgent(&network_agent.agent);
+        
+        if (args.len > 1) {
+            const command = args[1];
+            const command_args = if (args.len > 2) args[2..] else &[_][:0]u8{};
+            
+            const result = try agent_manager.executeCommand(.network, command, command_args);
+            if (result.success) {
+                std.debug.print("✅ {s}\n", .{result.message});
+            } else {
+                std.debug.print("❌ {s}\n", .{result.message});
+            }
+        } else {
+            std.debug.print("Available network commands: scan, ping, ports, monitor, trace\n", .{});
+        }
+    } else if (std.mem.eql(u8, agent_type_str, "security")) {
+        var security_agent = agent.security.SecurityAgent.init(allocator);
+        try agent_manager.registerAgent(&security_agent.agent);
+        
+        if (args.len > 1) {
+            const command = args[1];
+            const command_args = if (args.len > 2) args[2..] else &[_][:0]u8{};
+            
+            const result = try agent_manager.executeCommand(.security, command, command_args);
+            if (result.success) {
+                std.debug.print("✅ {s}\n", .{result.message});
+            } else {
+                std.debug.print("❌ {s}\n", .{result.message});
+            }
+        } else {
+            std.debug.print("Available security commands: scan, monitor, harden, audit, firewall, encrypt\n", .{});
+        }
+    } else if (std.mem.eql(u8, agent_type_str, "list")) {
+        std.debug.print("🤖 Available Agent Types:\n", .{});
+        std.debug.print("  • blockchain - Blockchain network operations\n", .{});
+        std.debug.print("  • smartcontract - Smart contract interactions\n", .{});
+        std.debug.print("  • network - Network monitoring and scanning\n", .{});
+        std.debug.print("  • security - Security analysis and hardening\n", .{});
+    } else {
+        std.debug.print("Unknown agent type: {s}\n", .{agent_type_str});
+        std.debug.print("Available types: blockchain, smartcontract, network, security\n", .{});
+        std.debug.print("Use 'zeke agent list' to see all available agents\n", .{});
     }
 }
 
@@ -958,6 +1063,12 @@ fn printUsage() !void {
     std.debug.print("  zeke file write <file_path> <content> - Write content to file\n", .{});
     std.debug.print("  zeke file edit <file_path> <instruction> - Edit file with AI\n", .{});
     std.debug.print("  zeke file generate <file_path> <description> - Generate file with AI\n", .{});
+    std.debug.print("\n🤖 Agent System:\n", .{});
+    std.debug.print("  zeke agent list                       - List all available agents\n", .{});
+    std.debug.print("  zeke agent blockchain <command>       - Blockchain operations\n", .{});
+    std.debug.print("  zeke agent smartcontract <command>    - Smart contract interactions\n", .{});
+    std.debug.print("  zeke agent network <command>          - Network monitoring/scanning\n", .{});
+    std.debug.print("  zeke agent security <command>         - Security analysis/hardening\n", .{});
     std.debug.print("\n🔌 Neovim Integration:\n", .{});
     std.debug.print("  zeke nvim --rpc                       - Start MessagePack-RPC server\n", .{});
     std.debug.print("  zeke nvim chat \"message\"              - Chat with context\n", .{});

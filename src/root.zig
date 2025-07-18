@@ -32,7 +32,7 @@ pub const Zeke = struct {
     provider_manager: providers.ProviderManager,
     fallback_manager: error_handling.FallbackManager,
     context_cache: context.ProjectContextCache,
-    concurrent_ai: concurrent.ConcurrentAI,
+    // concurrent_ai: concurrent.ConcurrentAI,
     arch_system: ?system.ArchSystem,
     realtime_features: ?streaming.RealTimeFeatures,
     current_model: []const u8,
@@ -63,8 +63,9 @@ pub const Zeke = struct {
         // Initialize context cache for project intelligence
         const context_cache = context.ProjectContextCache.init(allocator);
         
-        // Initialize concurrent AI handler
-        const concurrent_ai = try concurrent.ConcurrentAI.init(allocator, &provider_manager);
+        // Initialize concurrent AI handler (disabled for now due to threading issues)
+        // const concurrent_ai = try concurrent.ConcurrentAI.init(allocator, &provider_manager);
+        _ = concurrent;
         
         // Initialize Arch Linux system integration if available
         const arch_system = if (system.ArchSystem.isArchLinux()) 
@@ -89,7 +90,7 @@ pub const Zeke = struct {
             .provider_manager = provider_manager,
             .fallback_manager = fallback_manager,
             .context_cache = context_cache,
-            .concurrent_ai = concurrent_ai,
+            // .concurrent_ai = concurrent_ai,
             .arch_system = arch_system,
             .realtime_features = null, // Initialized on demand
             .current_model = zeke_config.default_model,
@@ -104,7 +105,7 @@ pub const Zeke = struct {
         self.provider_manager.deinit();
         self.fallback_manager.deinit();
         self.context_cache.deinit();
-        self.concurrent_ai.deinit();
+        // self.concurrent_ai.deinit();
         if (self.arch_system) |*arch| {
             arch.deinit();
         }
@@ -509,11 +510,14 @@ pub const Zeke = struct {
     
     // Enhanced AI Methods with concurrent support
     pub fn parallelChat(self: *Self, message: []const u8, provider_list: []const api.ApiProvider) ![]const u8 {
+        _ = provider_list;
         const messages = [_]api.ChatMessage{
             .{ .role = "user", .content = message },
         };
         
-        return try self.concurrent_ai.parallelChat(&messages, self.current_model, provider_list);
+        // Fallback to regular chat since concurrent AI is disabled
+        const message_content = messages[0].content;
+        return try self.chat(message_content);
     }
     
     pub fn parallelAnalysis(self: *Self, file_path: []const u8, analysis_type: api.AnalysisType) !api.AnalysisResponse {
@@ -533,8 +537,9 @@ pub const Zeke = struct {
             .framework = null,
         };
         
-        const provider_list = [_]api.ApiProvider{ .ghostllm, .claude, .openai };
-        return try self.concurrent_ai.parallelAnalysis(file_contents, analysis_type, project_context, &provider_list);
+        _ = [_]api.ApiProvider{ .ghostllm, .claude, .openai };
+        // Fallback to regular analysis since concurrent AI is disabled
+        return try self.analyzeCode(file_contents, analysis_type, project_context);
     }
     
     pub fn intelligentCodeCompletion(self: *Self, code: []const u8, file_path: []const u8) ![]const u8 {
@@ -606,11 +611,21 @@ pub const Zeke = struct {
     }
     
     pub fn getConcurrentStats(self: *const Self) concurrent.ConcurrentRequestHandler.RequestStats {
-        return self.concurrent_ai.getStats();
+        _ = self;
+        // Return empty stats since concurrent AI is disabled
+        return concurrent.ConcurrentRequestHandler.RequestStats{
+            .total_requests = 0,
+            .active_requests = 0,
+            .completed_requests = 0,
+            .failed_requests = 0,
+            .cancelled_requests = 0,
+            .average_completion_time_ms = 0,
+        };
     }
     
     pub fn cleanupConcurrentTasks(self: *Self) !void {
-        try self.concurrent_ai.cleanup();
+        _ = self;
+        // No cleanup needed since concurrent AI is disabled
     }
     
     // WASM preparation methods
@@ -654,14 +669,8 @@ pub const Zeke = struct {
 };
 
 pub fn bufferedPrint() !void {
-    const stdout_file = std.fs.File.stdout().deprecatedWriter();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("⚡ ZEKE - The Zig-Native AI Dev Companion\n", .{});
-    try stdout.print("Ready to assist with your coding workflow!\n", .{});
-
-    try bw.flush();
+    std.debug.print("⚡ ZEKE - The Zig-Native AI Dev Companion\n", .{});
+    std.debug.print("Ready to assist with your coding workflow!\n", .{});
 }
 
 pub fn add(a: i32, b: i32) i32 {
