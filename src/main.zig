@@ -5,6 +5,9 @@ const formatting = @import("formatting.zig");
 const file_ops = @import("file_ops.zig");
 const cli_streaming = @import("cli_streaming.zig");
 const agent = @import("agent/mod.zig");
+const git_ops = zeke.git;
+const search = zeke.search;
+const build_ops = zeke.build;
 
 // Simple command structure for ZEKE AI
 const ZekeCommand = struct {
@@ -192,6 +195,27 @@ pub fn main() !void {
         } else {
             std.debug.print("Usage: zeke agent <subcommand>\n", .{});
             std.debug.print("Subcommands: blockchain, smartcontract, network, security\n", .{});
+        }
+    } else if (std.mem.eql(u8, command, "git")) {
+        if (args.len > 2) {
+            try handleGitCommand(allocator, args[2..]);
+        } else {
+            std.debug.print("Usage: zeke git <subcommand>\n", .{});
+            std.debug.print("Subcommands: status, diff, add, commit, branch, pr\n", .{});
+        }
+    } else if (std.mem.eql(u8, command, "search")) {
+        if (args.len > 2) {
+            try handleSearchCommand(allocator, args[2..]);
+        } else {
+            std.debug.print("Usage: zeke search <subcommand>\n", .{});
+            std.debug.print("Subcommands: files, content, grep\n", .{});
+        }
+    } else if (std.mem.eql(u8, command, "build")) {
+        if (args.len > 2) {
+            try handleBuildCommand(allocator, args[2..]);
+        } else {
+            std.debug.print("Usage: zeke build <subcommand>\n", .{});
+            std.debug.print("Subcommands: run, test, clean, detect\n", .{});
         }
     } else {
         try printUsage();
@@ -988,6 +1012,364 @@ fn handleNvimCreate(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, des
     std.debug.print("{s}\n", .{json_response});
 }
 
+fn handleGitCommand(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    if (args.len == 0) {
+        std.debug.print("Usage: zeke git <subcommand>\n", .{});
+        return;
+    }
+    
+    var git_client = git_ops.GitOps.init(allocator);
+    defer git_client.deinit();
+    
+    const subcommand = args[0];
+    
+    if (std.mem.eql(u8, subcommand, "status")) {
+        if (!git_client.isGitRepo()) {
+            std.debug.print("❌ Not in a git repository\n", .{});
+            return;
+        }
+        
+        const files = git_client.getStatus() catch |err| {
+            std.debug.print("❌ Failed to get git status: {}\n", .{err});
+            return;
+        };
+        defer {
+            for (files) |*file| {
+                file.deinit(allocator);
+            }
+            allocator.free(files);
+        }
+        
+        if (files.len == 0) {
+            std.debug.print("✅ Working directory is clean\n", .{});
+            return;
+        }
+        
+        std.debug.print("📋 Git Status:\n", .{});
+        for (files) |file| {
+            const status_icon = switch (file.status) {
+                .modified => "🔶",
+                .added => "✅",
+                .deleted => "❌",
+                .renamed => "🔄",
+                .untracked => "❓",
+                .staged => "📦",
+            };
+            std.debug.print("  {s} {s}\n", .{ status_icon, file.path });
+        }
+    } else if (std.mem.eql(u8, subcommand, "diff")) {
+        const file_path = if (args.len > 1) args[1] else null;
+        const diff = git_client.getDiff(file_path) catch |err| {
+            std.debug.print("❌ Failed to get diff: {}\n", .{err});
+            return;
+        };
+        defer allocator.free(diff);
+        
+        if (diff.len == 0) {
+            std.debug.print("✅ No changes to show\n", .{});
+        } else {
+            std.debug.print("📝 Git Diff:\n{s}\n", .{diff});
+        }
+    } else if (std.mem.eql(u8, subcommand, "add")) {
+        if (args.len < 2) {
+            std.debug.print("Usage: zeke git add <file_path>\n", .{});
+            return;
+        }
+        
+        git_client.addFile(args[1]) catch |err| {
+            std.debug.print("❌ Failed to add file: {}\n", .{err});
+            return;
+        };
+        
+        std.debug.print("✅ Added file: {s}\n", .{args[1]});
+    } else if (std.mem.eql(u8, subcommand, "commit")) {
+        if (args.len < 2) {
+            std.debug.print("Usage: zeke git commit <message>\n", .{});
+            return;
+        }
+        
+        git_client.commit(args[1]) catch |err| {
+            std.debug.print("❌ Failed to commit: {}\n", .{err});
+            return;
+        };
+        
+        std.debug.print("✅ Committed with message: {s}\n", .{args[1]});
+    } else if (std.mem.eql(u8, subcommand, "branch")) {
+        const branch = git_client.getCurrentBranch() catch |err| {
+            std.debug.print("❌ Failed to get current branch: {}\n", .{err});
+            return;
+        };
+        defer allocator.free(branch);
+        
+        std.debug.print("🌿 Current branch: {s}\n", .{branch});
+    } else if (std.mem.eql(u8, subcommand, "pr")) {
+        if (args.len < 3) {
+            std.debug.print("Usage: zeke git pr <title> <body> [base_branch]\n", .{});
+            return;
+        }
+        
+        const title = args[1];
+        const body = args[2];
+        const base_branch = if (args.len > 3) args[3] else "main";
+        
+        git_client.createPullRequest(title, body, base_branch) catch |err| {
+            std.debug.print("❌ Failed to create PR: {}\n", .{err});
+            return;
+        };
+        
+        std.debug.print("✅ Pull request created successfully\n", .{});
+    } else if (std.mem.eql(u8, subcommand, "info")) {
+        var git_info = git_client.getGitInfo() catch |err| {
+            std.debug.print("❌ Failed to get git info: {}\n", .{err});
+            return;
+        };
+        defer git_info.deinit(allocator);
+        
+        std.debug.print("📋 Git Repository Info:\n", .{});
+        std.debug.print("  Branch: {s}\n", .{git_info.branch});
+        std.debug.print("  Commit: {s}\n", .{git_info.commit_hash[0..8]});
+        std.debug.print("  Status: {s}\n", .{if (git_info.is_dirty) "🔶 Dirty" else "✅ Clean"});
+    } else {
+        std.debug.print("Unknown git subcommand: {s}\n", .{subcommand});
+        std.debug.print("Available: status, diff, add, commit, branch, pr, info\n", .{});
+    }
+}
+
+fn handleSearchCommand(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    if (args.len == 0) {
+        std.debug.print("Usage: zeke search <subcommand>\n", .{});
+        return;
+    }
+    
+    var searcher = search.FileSearch.init(allocator);
+    defer searcher.deinit();
+    
+    const subcommand = args[0];
+    
+    if (std.mem.eql(u8, subcommand, "content")) {
+        if (args.len < 2) {
+            std.debug.print("Usage: zeke search content <pattern> [path]\n", .{});
+            return;
+        }
+        
+        const pattern = args[1];
+        const root_path = if (args.len > 2) args[2] else ".";
+        
+        const options = search.SearchOptions{
+            .case_sensitive = false,
+            .context_lines = 2,
+            .max_results = 50,
+        };
+        
+        const results = searcher.searchInFiles(pattern, root_path, options) catch |err| {
+            std.debug.print("❌ Search failed: {}\n", .{err});
+            return;
+        };
+        defer {
+            for (results) |*result| {
+                result.deinit(allocator);
+            }
+            allocator.free(results);
+        }
+        
+        if (results.len == 0) {
+            std.debug.print("🔍 No matches found for pattern: {s}\n", .{pattern});
+            return;
+        }
+        
+        std.debug.print("🔍 Found {d} matches for pattern: {s}\n", .{ results.len, pattern });
+        for (results) |result| {
+            std.debug.print("\n📁 {s}:{d}\n", .{ result.file_path, result.line_number });
+            std.debug.print("   {s}\n", .{result.content});
+        }
+    } else if (std.mem.eql(u8, subcommand, "files")) {
+        if (args.len < 2) {
+            std.debug.print("Usage: zeke search files <name_pattern> [path]\n", .{});
+            return;
+        }
+        
+        const name_pattern = args[1];
+        const root_path = if (args.len > 2) args[2] else ".";
+        
+        const files = searcher.findFiles(name_pattern, root_path) catch |err| {
+            std.debug.print("❌ File search failed: {}\n", .{err});
+            return;
+        };
+        defer {
+            for (files) |file| {
+                allocator.free(file);
+            }
+            allocator.free(files);
+        }
+        
+        if (files.len == 0) {
+            std.debug.print("📁 No files found matching: {s}\n", .{name_pattern});
+            return;
+        }
+        
+        std.debug.print("📁 Found {d} files matching: {s}\n", .{ files.len, name_pattern });
+        for (files) |file_path| {
+            std.debug.print("  {s}\n", .{file_path});
+        }
+    } else if (std.mem.eql(u8, subcommand, "grep")) {
+        if (args.len < 2) {
+            std.debug.print("Usage: zeke search grep <pattern> [file_patterns...]\n", .{});
+            return;
+        }
+        
+        const pattern = args[1];
+        const file_patterns = if (args.len > 2) args[2..] else &[_][]const u8{"."};
+        
+        const options = search.SearchOptions{
+            .case_sensitive = false,
+            .context_lines = 1,
+            .max_results = 100,
+        };
+        
+        const results = searcher.grepCommand(pattern, file_patterns, options) catch |err| {
+            std.debug.print("❌ Grep search failed: {}\n", .{err});
+            // Fallback to internal search
+            const fallback_results = searcher.searchInFiles(pattern, ".", options) catch |fallback_err| {
+                std.debug.print("❌ Fallback search also failed: {}\n", .{fallback_err});
+                return;
+            };
+            defer {
+                for (fallback_results) |*result| {
+                    result.deinit(allocator);
+                }
+                allocator.free(fallback_results);
+            }
+            
+            std.debug.print("🔍 Fallback search found {d} matches\n", .{fallback_results.len});
+            for (fallback_results) |result| {
+                std.debug.print("📁 {s}:{d} - {s}\n", .{ result.file_path, result.line_number, result.content });
+            }
+            return;
+        };
+        defer {
+            for (results) |*result| {
+                result.deinit(allocator);
+            }
+            allocator.free(results);
+        }
+        
+        if (results.len == 0) {
+            std.debug.print("🔍 No matches found\n", .{});
+            return;
+        }
+        
+        std.debug.print("🔍 Found {d} matches\n", .{results.len});
+        for (results) |result| {
+            std.debug.print("📁 {s}:{d} - {s}\n", .{ result.file_path, result.line_number, result.content });
+        }
+    } else {
+        std.debug.print("Unknown search subcommand: {s}\n", .{subcommand});
+        std.debug.print("Available: content, files, grep\n", .{});
+    }
+}
+
+fn handleBuildCommand(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    if (args.len == 0) {
+        std.debug.print("Usage: zeke build <subcommand>\n", .{});
+        return;
+    }
+    
+    var builder = build_ops.BuildOps.init(allocator);
+    defer builder.deinit();
+    
+    const subcommand = args[0];
+    const project_path = if (args.len > 1) args[1] else ".";
+    
+    if (std.mem.eql(u8, subcommand, "detect")) {
+        const build_system = builder.detectBuildSystem(project_path);
+        
+        std.debug.print("🔍 Detected build system: {s}\n", .{@tagName(build_system)});
+        
+        const recommendations = switch (build_system) {
+            .zig => "Use 'zeke build run' to build, 'zeke build test' to run tests",
+            .cargo => "Use 'cargo build' to build, 'cargo test' to run tests",
+            .npm => "Use 'npm run build' to build, 'npm test' to run tests",
+            .make => "Use 'make' to build, 'make test' to run tests",
+            .cmake => "Use 'cmake --build build' to build",
+            .gradle => "Use './gradlew build' to build, './gradlew test' to run tests",
+            .maven => "Use 'mvn compile' to build, 'mvn test' to run tests",
+            .go => "Use 'go build ./...' to build, 'go test ./...' to run tests",
+            .unknown => "No known build system detected in this directory",
+        };
+        
+        std.debug.print("💡 {s}\n", .{recommendations});
+    } else if (std.mem.eql(u8, subcommand, "run")) {
+        std.debug.print("🔨 Building project at: {s}\n", .{project_path});
+        
+        var result = builder.build(project_path, null) catch |err| {
+            std.debug.print("❌ Build failed with error: {}\n", .{err});
+            return;
+        };
+        defer result.deinit(allocator);
+        
+        if (result.success) {
+            std.debug.print("✅ Build completed successfully in {}ms\n", .{result.build_time_ms});
+            if (result.output.len > 0) {
+                std.debug.print("📋 Build Output:\n{s}\n", .{result.output});
+            }
+        } else {
+            std.debug.print("❌ Build failed in {}ms\n", .{result.build_time_ms});
+            if (result.errors.len > 0) {
+                std.debug.print("🚫 Build Errors:\n{s}\n", .{result.errors});
+            }
+            if (result.output.len > 0) {
+                std.debug.print("📋 Build Output:\n{s}\n", .{result.output});
+            }
+        }
+    } else if (std.mem.eql(u8, subcommand, "test")) {
+        std.debug.print("🧪 Running tests for project at: {s}\n", .{project_path});
+        
+        var result = builder.test_(project_path, null) catch |err| {
+            std.debug.print("❌ Tests failed with error: {}\n", .{err});
+            return;
+        };
+        defer result.deinit(allocator);
+        
+        if (result.success) {
+            std.debug.print("✅ Tests completed successfully in {}ms\n", .{result.build_time_ms});
+            if (result.output.len > 0) {
+                std.debug.print("📋 Test Output:\n{s}\n", .{result.output});
+            }
+        } else {
+            std.debug.print("❌ Tests failed in {}ms\n", .{result.build_time_ms});
+            if (result.errors.len > 0) {
+                std.debug.print("🚫 Test Errors:\n{s}\n", .{result.errors});
+            }
+            if (result.output.len > 0) {
+                std.debug.print("📋 Test Output:\n{s}\n", .{result.output});
+            }
+        }
+    } else if (std.mem.eql(u8, subcommand, "clean")) {
+        std.debug.print("🧹 Cleaning project at: {s}\n", .{project_path});
+        
+        var result = builder.clean(project_path, null) catch |err| {
+            std.debug.print("❌ Clean failed with error: {}\n", .{err});
+            return;
+        };
+        defer result.deinit(allocator);
+        
+        if (result.success) {
+            std.debug.print("✅ Clean completed successfully in {}ms\n", .{result.build_time_ms});
+            if (result.output.len > 0) {
+                std.debug.print("📋 Clean Output:\n{s}\n", .{result.output});
+            }
+        } else {
+            std.debug.print("❌ Clean failed in {}ms\n", .{result.build_time_ms});
+            if (result.errors.len > 0) {
+                std.debug.print("🚫 Clean Errors:\n{s}\n", .{result.errors});
+            }
+        }
+    } else {
+        std.debug.print("Unknown build subcommand: {s}\n", .{subcommand});
+        std.debug.print("Available: run, test, clean, detect\n", .{});
+    }
+}
+
 fn handleNvimAnalyze(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, code: []const u8, analysis_type_str: []const u8) !void {
     const analysis_type = if (std.mem.eql(u8, analysis_type_str, "performance"))
         zeke.api.AnalysisType.performance
@@ -1069,6 +1451,23 @@ fn printUsage() !void {
     std.debug.print("  zeke agent smartcontract <command>    - Smart contract interactions\n", .{});
     std.debug.print("  zeke agent network <command>          - Network monitoring/scanning\n", .{});
     std.debug.print("  zeke agent security <command>         - Security analysis/hardening\n", .{});
+    std.debug.print("\n🔗 Git Integration:\n", .{});
+    std.debug.print("  zeke git status                       - Show git repository status\n", .{});
+    std.debug.print("  zeke git diff [file]                  - Show git diff for file or all files\n", .{});
+    std.debug.print("  zeke git add <file>                   - Add file to git staging area\n", .{});
+    std.debug.print("  zeke git commit <message>             - Commit staged changes\n", .{});
+    std.debug.print("  zeke git branch                       - Show current git branch\n", .{});
+    std.debug.print("  zeke git pr <title> <body> [base]     - Create pull request via GitHub CLI\n", .{});
+    std.debug.print("  zeke git info                         - Show detailed git repository info\n", .{});
+    std.debug.print("\n🔍 Search & Navigation:\n", .{});
+    std.debug.print("  zeke search content <pattern> [path]  - Search for text patterns in files\n", .{});
+    std.debug.print("  zeke search files <pattern> [path]    - Find files by name pattern\n", .{});
+    std.debug.print("  zeke search grep <pattern> [files...] - Use ripgrep for advanced search\n", .{});
+    std.debug.print("\n🔨 Build System Integration:\n", .{});
+    std.debug.print("  zeke build detect [path]              - Detect project build system\n", .{});
+    std.debug.print("  zeke build run [path]                 - Build the project\n", .{});
+    std.debug.print("  zeke build test [path]                - Run project tests\n", .{});
+    std.debug.print("  zeke build clean [path]               - Clean build artifacts\n", .{});
     std.debug.print("\n🔌 Neovim Integration:\n", .{});
     std.debug.print("  zeke nvim --rpc                       - Start MessagePack-RPC server\n", .{});
     std.debug.print("  zeke nvim chat \"message\"              - Chat with context\n", .{});

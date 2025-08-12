@@ -13,6 +13,9 @@ pub const concurrent = @import("concurrent/mod.zig");
 pub const system = @import("system/arch.zig");
 pub const tui = @import("tui/mod.zig");
 pub const rpc = @import("rpc/msgpack_rpc.zig");
+pub const git = @import("git/mod.zig");
+pub const search = @import("search/mod.zig");
+pub const build = @import("build/mod.zig");
 
 pub const ZekeError = error{
     InitializationFailed,

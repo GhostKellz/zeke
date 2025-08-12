@@ -38,7 +38,7 @@
         },
         .zqlite = .{
             .url = "https://github.com/ghostkellz/zqlite/archive/refs/heads/main.tar.gz",
-            .hash = "zqlite-1.2.0-0Cdu4gLkCgB0xsRQey9_4_EYcgTQ9NaiQM8Hvv43VBV2",
+            .hash = "zqlite-1.2.1-0Cdu4loCDAC76ydtuPGqRi57pBu2rPH3HB74rLBikIpv",
         },
         .flash = .{
             .url = "https://github.com/ghostkellz/flash/archive/refs/heads/main.tar.gz",
@@ -46,7 +46,7 @@
         },
         .zcrypto = .{
             .url = "https://github.com/ghostkellz/zcrypto/archive/refs/heads/main.tar.gz",
-            .hash = "zcrypto-0.8.3-rgQAI8wFDAD5qBCumYyC-gCZpzacQHbApwyvXj-ZCbiG",
+            .hash = "zcrypto-0.8.4-rgQAI6I0DQD3T7Vk5_S-EaUxMAhoXp7YvJtnzInpG7U1",
         },
         .phantom = .{
             .url = "https://github.com/ghostkellz/phantom/archive/refs/heads/main.tar.gz",
@@ -54,7 +54,7 @@
         },
         .shroud = .{
             .url = "https://github.com/ghostkellz/shroud/archive/refs/heads/main.tar.gz",
-            .hash = "shroud-1.2.0-7bM0UU5gAgDz5_6Lv88eYw1jsVyqPCSZmG26DxAlp4Uq",
+            .hash = "shroud-1.2.3-z7C8mbkLBQAWkrWAGcZpLI1ySO4_ciBrdiDYOyHdD2g0",
         },
     },
     .paths = .{
