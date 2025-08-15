@@ -1,5 +1,6 @@
 //! ZEKE - The Zig-Native AI Dev Companion
 const std = @import("std");
+const zsync = @import("zsync");
 
 // Re-export all modules
 pub const api = @import("api/client.zig");
@@ -12,10 +13,15 @@ pub const context = @import("context/mod.zig");
 pub const concurrent = @import("concurrent/mod.zig");
 pub const system = @import("system/arch.zig");
 pub const tui = @import("tui/mod.zig");
-pub const rpc = @import("rpc/msgpack_rpc.zig");
+pub const rpc = struct {
+    pub const GhostRPC = @import("rpc/ghost_rpc_standalone.zig").GhostRPC;
+    pub const MsgPackRPC = GhostRPC; // Alias for backward compatibility
+};
 pub const git = @import("git/mod.zig");
 pub const search = @import("search/mod.zig");
 pub const build = @import("build/mod.zig");
+pub const storage = @import("storage/mod.zig");
+pub const ghostllm = @import("providers/ghostllm.zig");
 
 pub const ZekeError = error{
     InitializationFailed,
@@ -29,13 +35,16 @@ pub const ZekeError = error{
 
 pub const Zeke = struct {
     allocator: std.mem.Allocator,
+    io: ?zsync.Io,
     config: config.Config,
     auth_manager: auth.AuthManager,
     api_client: api.ApiClient,
     provider_manager: providers.ProviderManager,
     fallback_manager: error_handling.FallbackManager,
     context_cache: context.ProjectContextCache,
-    // concurrent_ai: concurrent.ConcurrentAI,
+    storage_manager: ?storage.StorageManager,
+    ghostllm_client: ?ghostllm.GhostLLMClient,
+    concurrent_ai: ?concurrent.ConcurrentAI,
     arch_system: ?system.ArchSystem,
     realtime_features: ?streaming.RealTimeFeatures,
     current_model: []const u8,
@@ -44,6 +53,10 @@ pub const Zeke = struct {
     const Self = @This();
     
     pub fn init(allocator: std.mem.Allocator) !Self {
+        return Self.initWithIO(allocator, null);
+    }
+    
+    pub fn initWithIO(allocator: std.mem.Allocator, io: ?zsync.Io) !Self {
         const zeke_config = config.loadConfig(allocator) catch |err| {
             std.log.err("Failed to load config: {}", .{err});
             return ZekeError.ConfigLoadFailed;
@@ -66,15 +79,38 @@ pub const Zeke = struct {
         // Initialize context cache for project intelligence
         const context_cache = context.ProjectContextCache.init(allocator);
         
-        // Initialize concurrent AI handler (disabled for now due to threading issues)
-        // const concurrent_ai = try concurrent.ConcurrentAI.init(allocator, &provider_manager);
-        _ = concurrent;
+        // Initialize concurrent AI handler with zsync support
+        const concurrent_ai = if (io != null)
+            concurrent.ConcurrentAI.initWithZsync(allocator, &provider_manager, io) catch null
+        else
+            concurrent.ConcurrentAI.init(allocator, &provider_manager) catch null;
         
         // Initialize Arch Linux system integration if available
         const arch_system = if (system.ArchSystem.isArchLinux()) 
             system.ArchSystem.init(allocator) 
         else 
             null;
+        
+        // Initialize storage manager with encrypted database
+        const storage_manager = storage.StorageManager.init(
+            allocator, 
+            "zeke_data.db",
+            "zeke_secure_2024" // Default password, should be from config
+        ) catch |err| blk: {
+            std.log.warn("Failed to initialize storage: {}, continuing without persistence", .{err});
+            break :blk null;
+        };
+        
+        // Initialize GhostLLM client if configured
+        const ghostllm_client = if (zeke_config.enable_ghostllm) blk: {
+            const ghostllm_config = ghostllm.GhostLLMConfig{
+                .mode = .serve,
+                .enable_gpu = true,
+                .enable_quic = true,
+                .api_key = zeke_config.ghostllm_api_key,
+            };
+            break :blk ghostllm.GhostLLMClient.init(allocator, ghostllm_config) catch null;
+        } else null;
         
         // Select best provider for chat completion (default behavior)
         const best_provider = try provider_manager.selectBestProvider(.chat_completion) orelse .ghostllm;
@@ -87,13 +123,16 @@ pub const Zeke = struct {
         
         return Self{
             .allocator = allocator,
+            .io = io,
             .config = zeke_config,
             .auth_manager = auth_manager,
             .api_client = api_client,
             .provider_manager = provider_manager,
             .fallback_manager = fallback_manager,
             .context_cache = context_cache,
-            // .concurrent_ai = concurrent_ai,
+            .storage_manager = storage_manager,
+            .ghostllm_client = ghostllm_client,
+            .concurrent_ai = concurrent_ai,
             .arch_system = arch_system,
             .realtime_features = null, // Initialized on demand
             .current_model = zeke_config.default_model,
@@ -108,7 +147,15 @@ pub const Zeke = struct {
         self.provider_manager.deinit();
         self.fallback_manager.deinit();
         self.context_cache.deinit();
-        // self.concurrent_ai.deinit();
+        if (self.storage_manager) |*storage_mgr| {
+            storage_mgr.deinit();
+        }
+        if (self.ghostllm_client) |*client| {
+            client.deinit();
+        }
+        if (self.concurrent_ai) |*concurrent_ai| {
+            concurrent_ai.deinit();
+        }
         if (self.arch_system) |*arch| {
             arch.deinit();
         }
@@ -269,7 +316,14 @@ pub const Zeke = struct {
         // Enhanced chat with full error handling and monitoring
         const start_time = std.time.milliTimestamp();
         
-        const result = self.chatWithFallback(message) catch |err| {
+        // Try parallel execution first if available
+        const result = if (self.concurrent_ai != null) blk: {
+            const all_providers = [_]api.ApiProvider{ self.current_provider, .ghostllm, .claude, .openai, .ollama };
+            break :blk self.parallelChat(message, &all_providers) catch |err| {
+                std.log.warn("Parallel chat failed: {}, falling back to single provider", .{err});
+                break :blk self.chatWithFallback(message);
+            };
+        } else self.chatWithFallback(message) catch |err| {
             const end_time = std.time.milliTimestamp();
             const response_time: u64 = @intCast(end_time - start_time);
             
@@ -513,14 +567,19 @@ pub const Zeke = struct {
     
     // Enhanced AI Methods with concurrent support
     pub fn parallelChat(self: *Self, message: []const u8, provider_list: []const api.ApiProvider) ![]const u8 {
-        _ = provider_list;
-        const messages = [_]api.ChatMessage{
-            .{ .role = "user", .content = message },
-        };
-        
-        // Fallback to regular chat since concurrent AI is disabled
-        const message_content = messages[0].content;
-        return try self.chat(message_content);
+        if (self.concurrent_ai) |*concurrent_ai| {
+            const messages = [_]api.ChatMessage{
+                .{ .role = "user", .content = message },
+            };
+            return try concurrent_ai.parallelChat(messages, self.current_model, provider_list);
+        } else {
+            // Fallback to regular chat
+            const messages = [_]api.ChatMessage{
+                .{ .role = "user", .content = message },
+            };
+            const message_content = messages[0].content;
+            return try self.chat(message_content);
+        }
     }
     
     pub fn parallelAnalysis(self: *Self, file_path: []const u8, analysis_type: api.AnalysisType) !api.AnalysisResponse {
@@ -540,9 +599,13 @@ pub const Zeke = struct {
             .framework = null,
         };
         
-        _ = [_]api.ApiProvider{ .ghostllm, .claude, .openai };
-        // Fallback to regular analysis since concurrent AI is disabled
-        return try self.analyzeCode(file_contents, analysis_type, project_context);
+        if (self.concurrent_ai) |*concurrent_ai| {
+            const providers_to_try = [_]api.ApiProvider{ .ghostllm, .claude, .openai };
+            return try concurrent_ai.parallelAnalysis(file_contents, analysis_type, project_context, &providers_to_try);
+        } else {
+            // Fallback to regular analysis
+            return try self.analyzeCode(file_contents, analysis_type, project_context);
+        }
     }
     
     pub fn intelligentCodeCompletion(self: *Self, code: []const u8, file_path: []const u8) ![]const u8 {
@@ -614,8 +677,10 @@ pub const Zeke = struct {
     }
     
     pub fn getConcurrentStats(self: *const Self) concurrent.ConcurrentRequestHandler.RequestStats {
-        _ = self;
-        // Return empty stats since concurrent AI is disabled
+        if (self.concurrent_ai) |*concurrent_ai| {
+            return concurrent_ai.getStats();
+        }
+        // Return empty stats if concurrent AI is not available
         return concurrent.ConcurrentRequestHandler.RequestStats{
             .total_requests = 0,
             .active_requests = 0,
@@ -627,8 +692,9 @@ pub const Zeke = struct {
     }
     
     pub fn cleanupConcurrentTasks(self: *Self) !void {
-        _ = self;
-        // No cleanup needed since concurrent AI is disabled
+        if (self.concurrent_ai) |*concurrent_ai| {
+            try concurrent_ai.cleanup();
+        }
     }
     
     // WASM preparation methods

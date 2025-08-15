@@ -76,6 +76,16 @@ pub const Config = struct {
     claude_api_key: ?[]const u8 = null,
     ghostllm_api_key: ?[]const u8 = null,
     
+    // GhostLLM settings
+    enable_ghostllm: bool = true,
+    ghostllm_gpu_enabled: bool = true,
+    ghostllm_quic_enabled: bool = true,
+    
+    // Storage settings
+    enable_storage: bool = true,
+    storage_encryption_key: ?[]const u8 = null,
+    storage_path: []const u8 = "zeke_data.db",
+    
     // OAuth settings
     oauth: OAuthConfig = OAuthConfig{},
     

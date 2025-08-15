@@ -1,5 +1,6 @@
 const std = @import("std");
 const flash = @import("flash");
+const zsync = @import("zsync");
 const zeke = @import("zeke");
 const formatting = @import("formatting.zig");
 const file_ops = @import("file_ops.zig");
@@ -33,6 +34,21 @@ const ZekeCommand = struct {
 
 
 pub fn main() !void {
+    // Create a zsync runtime manually to avoid type mismatch
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    
+    const runtime = try zsync.Runtime.init(allocator, .{ .execution_model = .blocking });
+    defer runtime.deinit();
+    
+    runtime.setGlobal();
+    
+    // Pass null for io to bypass the type mismatch for now
+    try zekeMain(null);
+}
+
+fn zekeMain(_: anytype) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -41,8 +57,9 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    // Initialize ZEKE instance
-    var zeke_instance = zeke.Zeke.init(allocator) catch |err| {
+    // Initialize ZEKE instance with zsync support  
+    // For now, pass null to avoid type mismatch until zsync types are fixed
+    var zeke_instance = zeke.Zeke.initWithIO(allocator, null) catch |err| {
         std.log.err("Failed to initialize ZEKE: {}", .{err});
         return;
     };
@@ -827,13 +844,7 @@ fn handleNvimCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, ar
     const subcommand = args[0];
     
     if (std.mem.eql(u8, subcommand, "--rpc")) {
-        // RPC server temporarily disabled - use CLI commands instead
-        std.debug.print("RPC server temporarily disabled. Use CLI commands instead:\n", .{});
-        std.debug.print("  zeke nvim chat \"message\"\n", .{});
-        std.debug.print("  zeke nvim edit \"code\" \"instruction\"\n", .{});
-        std.debug.print("  zeke nvim explain \"code\"\n", .{});
-        std.debug.print("  zeke nvim create \"description\"\n", .{});
-        std.debug.print("  zeke nvim analyze \"code\" \"type\"\n", .{});
+        try handleRPCServer(zeke_instance, allocator);
     } else if (std.mem.eql(u8, subcommand, "chat")) {
         if (args.len > 1) {
             try handleNvimChat(zeke_instance, allocator, args[1]);
@@ -871,23 +882,43 @@ fn handleNvimCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, ar
 }
 
 fn handleRPCServer(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
-    std.debug.print("🚀 Starting ZEKE MessagePack-RPC server...\n", .{});
+    std.debug.print("🚀 Starting ZEKE GhostRPC server...\n", .{});
     
-    var rpc_server = try zeke.rpc.MsgPackRPC.init(allocator, zeke_instance);
+    var rpc_server = try zeke.rpc.GhostRPC.init(allocator, zeke_instance);
     defer rpc_server.deinit();
     
-    // Set up signal handling for graceful shutdown
+    // Set up graceful shutdown with zsync
     const SignalHandler = struct {
         server: *zeke.rpc.MsgPackRPC,
+        // cancel_token: zsync.CancelToken,
         
-        fn handle(self: @This()) void {
+        fn init(server: *zeke.rpc.MsgPackRPC) @This() {
+            return @This(){
+                .server = server,
+                // .cancel_token = zsync.CancelToken.init(),
+            };
+        }
+        
+        fn deinit(self: *@This()) void {
+            // TODO: Implement proper cleanup when cancel_token is restored
+            _ = self;
+        }
+        
+        fn setup(self: *@This()) void {
+            // TODO: Set up actual signal handling with zsync
+            _ = self;
+        }
+        
+        fn handle(self: *@This()) void {
             std.debug.print("\n🛑 Received shutdown signal, stopping RPC server...\n", .{});
             self.server.stop();
+            self.cancel_token.cancel();
         }
     };
     
-    const signal_handler = SignalHandler{ .server = &rpc_server };
-    _ = signal_handler; // TODO: Set up actual signal handling
+    var signal_handler = SignalHandler.init(&rpc_server);
+    defer signal_handler.deinit();
+    signal_handler.setup();
     
     // Start the RPC server
     try rpc_server.start();

@@ -1,13 +1,15 @@
 const std = @import("std");
+const zsync = @import("zsync");
 const api = @import("../api/client.zig");
 const providers = @import("../providers/mod.zig");
 
 /// Concurrent request handling for multiple AI providers
 pub const ConcurrentRequestHandler = struct {
     allocator: std.mem.Allocator,
-    thread_pool: std.Thread.Pool,
+    io: ?zsync.Io,
     active_requests: std.AutoHashMap(u64, *RequestTask),
     request_counter: std.atomic.Value(u64),
+    cancel_token: ?*zsync.CancelToken,
     
     pub const RequestTask = struct {
         id: u64,
@@ -91,21 +93,27 @@ pub const ConcurrentRequestHandler = struct {
     const Self = @This();
     
     pub fn init(allocator: std.mem.Allocator, max_threads: u32) !Self {
-        var thread_pool: std.Thread.Pool = undefined;
-        try thread_pool.init(.{
-            .allocator = allocator,
-            .n_jobs = max_threads,
-        });
+        return Self.initWithZsync(allocator, max_threads, null);
+    }
+    
+    pub fn initWithZsync(allocator: std.mem.Allocator, max_threads: u32, io: ?zsync.Io) !Self {
+        _ = max_threads; // zsync manages threads automatically
         
         return Self{
             .allocator = allocator,
-            .thread_pool = thread_pool,
+            .io = io,
             .active_requests = std.AutoHashMap(u64, *RequestTask).init(allocator),
             .request_counter = std.atomic.Value(u64).init(0),
+            .cancel_token = if (io != null) zsync.CancelToken.init(allocator, .user_requested) catch null else null,
         };
     }
     
     pub fn deinit(self: *Self) void {
+        if (self.cancel_token) |token| {
+            token.cancel();
+            token.deinit();
+        }
+        
         // Cancel all active requests
         var iter = self.active_requests.iterator();
         while (iter.next()) |entry| {
@@ -116,7 +124,6 @@ pub const ConcurrentRequestHandler = struct {
         }
         
         self.active_requests.deinit();
-        self.thread_pool.deinit();
     }
     
     pub fn submitChatRequest(
@@ -138,8 +145,13 @@ pub const ConcurrentRequestHandler = struct {
         };
         task.context = chat_data;
         
-        // Submit to thread pool
-        try self.thread_pool.spawn(chatCompletionWorker, .{ self, task });
+        // Submit using zsync if available, otherwise use fallback
+        if (self.io != null) {
+            _ = try zsync.globalSpawn(chatCompletionWorkerAsync, .{ self, task });
+        } else {
+            // Fallback to synchronous execution
+            chatCompletionWorker(self, task);
+        }
         
         return task.id;
     }
@@ -165,8 +177,13 @@ pub const ConcurrentRequestHandler = struct {
         };
         task.context = analysis_data;
         
-        // Submit to thread pool
-        try self.thread_pool.spawn(codeAnalysisWorker, .{ self, task });
+        // Submit using zsync if available, otherwise use fallback
+        if (self.io != null) {
+            _ = try zsync.globalSpawn(codeAnalysisWorkerAsync, .{ self, task });
+        } else {
+            // Fallback to synchronous execution
+            codeAnalysisWorker(self, task);
+        }
         
         return task.id;
     }
@@ -380,6 +397,10 @@ pub const ConcurrentRequestHandler = struct {
         return task;
     }
     
+    fn chatCompletionWorkerAsync(self: *Self, task: *RequestTask) !void {
+        self.chatCompletionWorker(task);
+    }
+    
     fn chatCompletionWorker(self: *Self, task: *RequestTask) void {
         task.status = .in_progress;
         
@@ -408,6 +429,10 @@ pub const ConcurrentRequestHandler = struct {
         if (task.callback) |callback| {
             callback(task);
         }
+    }
+    
+    fn codeAnalysisWorkerAsync(self: *Self, task: *RequestTask) !void {
+        self.codeAnalysisWorker(task);
     }
     
     fn codeAnalysisWorker(self: *Self, task: *RequestTask) void {
@@ -484,6 +509,17 @@ pub const ConcurrentAI = struct {
     pub fn init(allocator: std.mem.Allocator, provider_manager: *providers.ProviderManager) !Self {
         const max_threads = try std.Thread.getCpuCount();
         const request_handler = try ConcurrentRequestHandler.init(allocator, @intCast(max_threads));
+        
+        return Self{
+            .allocator = allocator,
+            .request_handler = request_handler,
+            .provider_manager = provider_manager,
+        };
+    }
+    
+    pub fn initWithZsync(allocator: std.mem.Allocator, provider_manager: *providers.ProviderManager, io: ?zsync.Io) !Self {
+        const max_threads = try std.Thread.getCpuCount();
+        const request_handler = try ConcurrentRequestHandler.initWithZsync(allocator, @intCast(max_threads), io);
         
         return Self{
             .allocator = allocator,
