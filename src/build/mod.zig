@@ -334,3 +334,6 @@ pub const BuildOps = struct {
         });
     }
 };
+
+// Re-export project analyzer for external use
+pub const ProjectAnalyzer = @import("project_analyzer.zig").ProjectAnalyzer;

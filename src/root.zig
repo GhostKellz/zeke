@@ -15,6 +15,8 @@ pub const system = @import("system/arch.zig");
 pub const tui = @import("tui/mod.zig");
 pub const rpc = struct {
     pub const GhostRPC = @import("rpc/ghost_rpc_standalone.zig").GhostRPC;
+    pub const HttpServer = @import("rpc/http_server.zig").HttpServer;
+    pub const ResponseFormats = @import("rpc/response_formats.zig").ResponseFormats;
     pub const MsgPackRPC = GhostRPC; // Alias for backward compatibility
 };
 pub const git = @import("git/mod.zig");
