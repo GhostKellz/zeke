@@ -56,8 +56,8 @@ pub const TuiApp = struct {
             .allocator = allocator,
             .zeke_instance = zeke_instance,
             .app = app,
-            .chat_history = std.ArrayList(ChatEntry).init(allocator),
-            .current_input = std.ArrayList(u8).init(allocator),
+            .chat_history = std.ArrayList(ChatEntry){},
+            .current_input = std.ArrayList(u8){},
             .selected_model = zeke_instance.current_model,
             .title_text = title_text,
             .chat_display = chat_display,
@@ -76,8 +76,8 @@ pub const TuiApp = struct {
         for (self.chat_history.items) |entry| {
             self.allocator.free(entry.content);
         }
-        self.chat_history.deinit();
-        self.current_input.deinit();
+        self.chat_history.deinit(self.allocator);
+        self.current_input.deinit(self.allocator);
     }
     
     pub fn run(self: *Self) !void {
@@ -151,7 +151,7 @@ pub const TuiApp = struct {
             .timestamp = std.time.timestamp(),
         };
         
-        try self.chat_history.append(welcome_entry);
+        try self.chat_history.append(self.allocator, welcome_entry);
     }
     
     fn showThinkingIndicator(self: *Self) !void {

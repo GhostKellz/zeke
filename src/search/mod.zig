@@ -41,67 +41,67 @@ pub const FileSearch = struct {
     }
     
     pub fn searchInFiles(self: *Self, pattern: []const u8, root_path: []const u8, options: SearchOptions) ![]SearchResult {
-        var results = std.ArrayList(SearchResult).init(self.allocator);
+        var results = std.ArrayList(SearchResult){};
         defer {
             for (results.items) |*result| {
                 result.deinit(self.allocator);
             }
-            results.deinit();
+            results.deinit(self.allocator);
         }
         
         try self.searchInDirectory(pattern, root_path, options, &results);
         
-        return results.toOwnedSlice();
+        return results.toOwnedSlice(self.allocator);
     }
     
     pub fn searchInFile(self: *Self, pattern: []const u8, file_path: []const u8, options: SearchOptions) ![]SearchResult {
-        var results = std.ArrayList(SearchResult).init(self.allocator);
+        var results = std.ArrayList(SearchResult){};
         defer {
             for (results.items) |*result| {
                 result.deinit(self.allocator);
             }
-            results.deinit();
+            results.deinit(self.allocator);
         }
         
         try self.searchFileContent(pattern, file_path, options, &results);
         
-        return results.toOwnedSlice();
+        return results.toOwnedSlice(self.allocator);
     }
     
     pub fn findFiles(self: *Self, name_pattern: []const u8, root_path: []const u8) ![][]const u8 {
-        var files = std.ArrayList([]const u8).init(self.allocator);
+        var files = std.ArrayList([]const u8){};
         defer {
             for (files.items) |file| {
                 self.allocator.free(file);
             }
-            files.deinit();
+            files.deinit(self.allocator);
         }
         
         try self.findFilesInDirectory(name_pattern, root_path, &files);
         
-        return files.toOwnedSlice();
+        return files.toOwnedSlice(self.allocator);
     }
     
     pub fn grepCommand(self: *Self, pattern: []const u8, file_patterns: []const []const u8, options: SearchOptions) ![]SearchResult {
-        var argv = std.ArrayList([]const u8).init(self.allocator);
-        defer argv.deinit();
+        var argv = std.ArrayList([]const u8){};
+        defer argv.deinit(self.allocator);
         
-        try argv.appendSlice(&[_][]const u8{"rg", "--json"});
+        try argv.appendSlice(self.allocator, &[_][]const u8{"rg", "--json"});
         
         if (!options.case_sensitive) {
-            try argv.append("-i");
+            try argv.append(self.allocator, "-i");
         }
         
         if (options.context_lines > 0) {
             const context_arg = try std.fmt.allocPrint(self.allocator, "-C{d}", .{options.context_lines});
             defer self.allocator.free(context_arg);
-            try argv.append(context_arg);
+            try argv.append(self.allocator, context_arg);
         }
         
-        try argv.append(pattern);
+        try argv.append(self.allocator, pattern);
         
         for (file_patterns) |file_pattern| {
-            try argv.append(file_pattern);
+            try argv.append(self.allocator, file_pattern);
         }
         
         const result = std.process.Child.run(.{
@@ -161,18 +161,12 @@ pub const FileSearch = struct {
     }
     
     fn searchFileContent(self: *Self, pattern: []const u8, file_path: []const u8, options: SearchOptions, results: *std.ArrayList(SearchResult)) !void {
-        const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
-            std.log.warn("Failed to open file {s}: {}", .{ file_path, err });
+        const content = std.fs.cwd().readFileAlloc(file_path, self.allocator, @as(std.Io.Limit, @enumFromInt(10 * 1024 * 1024))) catch |err| {
+            if (err != error.FileTooBig) {
+                std.log.warn("Failed to read file {s}: {}", .{ file_path, err });
+            }
             return;
         };
-        defer file.close();
-        
-        const file_size = try file.getEndPos();
-        if (file_size > 10 * 1024 * 1024) { // Skip files larger than 10MB
-            return;
-        }
-        
-        const content = try file.readToEndAlloc(self.allocator, file_size);
         defer self.allocator.free(content);
         
         // Check for binary content
@@ -181,12 +175,12 @@ pub const FileSearch = struct {
         }
         
         var lines = std.mem.splitScalar(u8, content, '\n');
-        var line_contents = std.ArrayList([]const u8).init(self.allocator);
-        defer line_contents.deinit();
+        var line_contents = std.ArrayList([]const u8){};
+        defer line_contents.deinit(self.allocator);
         
         // Store lines for context
         while (lines.next()) |line| {
-            try line_contents.append(line);
+            try line_contents.append(self.allocator, line);
         }
         
         // Search through lines
@@ -202,30 +196,30 @@ pub const FileSearch = struct {
                 const context_start = if (i >= options.context_lines) i - options.context_lines else 0;
                 const context_end = @min(i + options.context_lines + 1, line_contents.items.len);
                 
-                var context_before = std.ArrayList(u8).init(self.allocator);
-                defer context_before.deinit();
+                var context_before = std.ArrayList(u8){};
+                defer context_before.deinit(self.allocator);
                 
-                var context_after = std.ArrayList(u8).init(self.allocator);
-                defer context_after.deinit();
+                var context_after = std.ArrayList(u8){};
+                defer context_after.deinit(self.allocator);
                 
                 // Collect context before
                 for (line_contents.items[context_start..i]) |ctx_line| {
-                    try context_before.appendSlice(ctx_line);
-                    try context_before.append('\n');
+                    try context_before.appendSlice(self.allocator, ctx_line);
+                    try context_before.append(self.allocator, '\n');
                 }
                 
                 // Collect context after
                 for (line_contents.items[i + 1..context_end]) |ctx_line| {
-                    try context_after.appendSlice(ctx_line);
-                    try context_after.append('\n');
+                    try context_after.appendSlice(self.allocator, ctx_line);
+                    try context_after.append(self.allocator, '\n');
                 }
                 
-                try results.append(SearchResult{
+                try results.append(self.allocator, SearchResult{
                     .file_path = try self.allocator.dupe(u8, file_path),
                     .line_number = line_num,
                     .content = try self.allocator.dupe(u8, line),
-                    .context_before = try context_before.toOwnedSlice(),
-                    .context_after = try context_after.toOwnedSlice(),
+                    .context_before = try context_before.toOwnedSlice(self.allocator),
+                    .context_after = try context_after.toOwnedSlice(self.allocator),
                 });
             }
             
@@ -253,7 +247,7 @@ pub const FileSearch = struct {
                 },
                 .file => {
                     if (std.mem.indexOf(u8, entry.name, name_pattern) != null) {
-                        try files.append(entry_path);
+                        try files.append(self.allocator, entry_path);
                     } else {
                         self.allocator.free(entry_path);
                     }
@@ -310,12 +304,12 @@ pub const FileSearch = struct {
     }
     
     fn parseRgOutput(self: *Self, output: []const u8) ![]SearchResult {
-        var results = std.ArrayList(SearchResult).init(self.allocator);
+        var results = std.ArrayList(SearchResult){};
         defer {
             for (results.items) |*result| {
                 result.deinit(self.allocator);
             }
-            results.deinit();
+            results.deinit(self.allocator);
         }
         
         var lines = std.mem.splitScalar(u8, output, '\n');
@@ -348,7 +342,7 @@ pub const FileSearch = struct {
             const text_value = lines_obj.get("text") orelse continue;
             if (text_value != .string) continue;
             
-            try results.append(SearchResult{
+            try results.append(self.allocator, SearchResult{
                 .file_path = try self.allocator.dupe(u8, path_value.string),
                 .line_number = @as(u32, @intCast(line_number_value.integer)),
                 .content = try self.allocator.dupe(u8, text_value.string),
@@ -357,6 +351,6 @@ pub const FileSearch = struct {
             });
         }
         
-        return results.toOwnedSlice();
+        return results.toOwnedSlice(self.allocator);
     }
 };

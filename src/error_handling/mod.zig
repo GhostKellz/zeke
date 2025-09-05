@@ -182,7 +182,7 @@ pub const FallbackManager = struct {
         return Self{
             .allocator = allocator,
             .circuit_breakers = std.AutoHashMap(api.ApiProvider, CircuitBreaker).init(allocator),
-            .error_history = std.ArrayList(ZekeError).init(allocator),
+            .error_history = std.ArrayList(ZekeError){},
             .max_error_history = 100,
         };
     }
@@ -191,7 +191,7 @@ pub const FallbackManager = struct {
         for (self.error_history.items) |*error_item| {
             error_item.deinit(self.allocator);
         }
-        self.error_history.deinit();
+        self.error_history.deinit(self.allocator);
         self.circuit_breakers.deinit();
     }
     
@@ -229,15 +229,15 @@ pub const FallbackManager = struct {
     }
     
     pub fn selectFallbackProviders(self: *Self, _: providers.ProviderCapability, preferred_providers: []const api.ApiProvider) ![]api.ApiProvider {
-        var available_providers = std.ArrayList(api.ApiProvider).init(self.allocator);
+        var available_providers = std.ArrayList(api.ApiProvider){};
         
         for (preferred_providers) |provider| {
             if (try self.canUseProvider(provider)) {
-                try available_providers.append(provider);
+                try available_providers.append(self.allocator, provider);
             }
         }
         
-        return available_providers.toOwnedSlice();
+        return available_providers.toOwnedSlice(self.allocator);
     }
     
     pub fn getErrorStats(self: *const Self) ErrorStats {
@@ -470,7 +470,7 @@ pub const ConnectionPool = struct {
                 client.deinit();
                 self.allocator.destroy(client);
             }
-            entry.value_ptr.deinit();
+            entry.value_ptr.deinit(self.allocator);
         }
         self.connections.deinit();
     }
@@ -490,12 +490,12 @@ pub const ConnectionPool = struct {
     
     pub fn returnConnection(self: *Self, provider: api.ApiProvider, client: *std.http.Client) !void {
         if (!self.connections.contains(provider)) {
-            try self.connections.put(provider, std.ArrayList(*std.http.Client).init(self.allocator));
+            try self.connections.put(provider, std.ArrayList(*std.http.Client){});
         }
         
         var pool = self.connections.getPtr(provider).?;
         if (pool.items.len < self.max_connections) {
-            try pool.append(client);
+            try pool.append(self.allocator, client);
         } else {
             // Pool is full, close the connection
             client.deinit();

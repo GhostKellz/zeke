@@ -400,22 +400,22 @@ const MetricsCollector = struct {
     pub fn init(allocator: std.mem.Allocator) MetricsCollector {
         return .{
             .allocator = allocator,
-            .latencies = std.ArrayList(u64).init(allocator),
-            .token_counts = std.ArrayList(u32).init(allocator),
+            .latencies = std.ArrayList(u64){},
+            .token_counts = std.ArrayList(u32){},
         };
     }
     
     pub fn deinit(self: *MetricsCollector) void {
-        self.latencies.deinit();
-        self.token_counts.deinit();
+        self.latencies.deinit(self.allocator);
+        self.token_counts.deinit(self.allocator);
     }
     
     pub fn recordLatency(self: *MetricsCollector, latency_ms: u64) !void {
-        try self.latencies.append(latency_ms);
+        try self.latencies.append(self.allocator, latency_ms);
     }
     
     pub fn recordTokens(self: *MetricsCollector, tokens: u32) !void {
-        try self.token_counts.append(tokens);
+        try self.token_counts.append(self.allocator, tokens);
     }
     
     pub fn getAverageLatency(self: *MetricsCollector) f64 {

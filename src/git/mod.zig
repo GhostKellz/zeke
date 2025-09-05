@@ -45,12 +45,12 @@ pub const GitOps = struct {
     }
     
     pub fn getStatus(self: *Self) ![]GitFile {
-        var files = std.ArrayList(GitFile).init(self.allocator);
+        var files = std.ArrayList(GitFile){};
         defer {
             for (files.items) |*file| {
                 file.deinit(self.allocator);
             }
-            files.deinit();
+            files.deinit(self.allocator);
         }
         
         const result = std.process.Child.run(.{
@@ -80,13 +80,13 @@ pub const GitOps = struct {
             const status = parseGitStatus(status_code);
             const path_copy = try self.allocator.dupe(u8, file_path);
             
-            try files.append(GitFile{
+            try files.append(self.allocator, GitFile{
                 .path = path_copy,
                 .status = status,
             });
         }
         
-        return files.toOwnedSlice();
+        return files.toOwnedSlice(self.allocator);
     }
     
     pub fn getCurrentBranch(self: *Self) ![]const u8 {
@@ -130,12 +130,12 @@ pub const GitOps = struct {
     }
     
     pub fn getDiff(self: *Self, file_path: ?[]const u8) ![]const u8 {
-        var argv = std.ArrayList([]const u8).init(self.allocator);
-        defer argv.deinit();
+        var argv = std.ArrayList([]const u8){};
+        defer argv.deinit(self.allocator);
         
-        try argv.appendSlice(&[_][]const u8{"git", "diff"});
+        try argv.appendSlice(self.allocator, &[_][]const u8{"git", "diff"});
         if (file_path) |path| {
-            try argv.append(path);
+            try argv.append(self.allocator, path);
         }
         
         const result = std.process.Child.run(.{

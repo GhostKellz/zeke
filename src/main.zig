@@ -9,6 +9,7 @@ const agent = @import("agent/mod.zig");
 const git_ops = zeke.git;
 const search = zeke.search;
 const build_ops = zeke.build;
+const zsync_metrics = @import("performance/zsync_metrics.zig");
 
 // Simple command structure for ZEKE AI
 const ZekeCommand = struct {
@@ -34,18 +35,40 @@ const ZekeCommand = struct {
 
 
 pub fn main() !void {
-    // Create a zsync runtime manually to avoid type mismatch
+    // Enhanced zsync v0.5.4 runtime with hybrid execution model
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
     
-    const runtime = try zsync.Runtime.init(allocator, .{ .execution_model = .blocking });
+    // Use zsync v0.5.4 hybrid execution for optimal performance
+    const cpu_count = std.Thread.getCpuCount() catch 4;
+    const available_memory = cpu_count * 64 * 1024 * 1024; // Estimate
+    
+    // Choose optimal execution model based on system capabilities
+    const execution_model: zsync.ExecutionModel = if (cpu_count >= 8 and available_memory > 512 * 1024 * 1024)
+        .thread_pool // Use thread pool for high-performance systems
+    else if (cpu_count >= 4)
+        .green_threads // Use green threads for medium systems  
+    else
+        .blocking; // Fallback to blocking for low-resource systems
+    
+    const config = zsync.Config{
+        .execution_model = execution_model,
+    };
+    
+    const runtime = try zsync.Runtime.init(allocator, config);
     defer runtime.deinit();
     
     runtime.setGlobal();
     
-    // Pass null for io to bypass the type mismatch for now
-    try zekeMain(null);
+    std.log.info("Zeke starting with zsync v0.5.4 - execution model: {}", .{execution_model});
+    
+    // Initialize performance monitoring for v0.5.4 features
+    try zsync_metrics.initGlobalMetrics(allocator);
+    defer zsync_metrics.deinitGlobalMetrics(allocator);
+    
+    // Pass runtime IO for enhanced concurrent capabilities
+    try zekeMain(runtime.getIo());
 }
 
 fn zekeMain(_: anytype) !void {
@@ -495,7 +518,7 @@ fn handleDebug(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, error_de
 }
 
 fn handleAnalyze(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, file_path: []const u8, analysis_type_str: []const u8) !void {
-    const file_contents = std.fs.cwd().readFileAlloc(allocator, file_path, 1024 * 1024) catch |err| {
+    const file_contents = std.fs.cwd().readFileAlloc(file_path, allocator, @as(std.Io.Limit, @enumFromInt(1024 * 1024))) catch |err| {
         std.log.err("Failed to read file {s}: {}", .{file_path, err});
         return;
     };
@@ -747,7 +770,7 @@ fn handleRealTimeEnable(zeke_instance: *zeke.Zeke) !void {
 }
 
 fn handleSmartAnalyze(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, file_path: []const u8, analysis_type_str: []const u8) !void {
-    const file_contents = std.fs.cwd().readFileAlloc(allocator, file_path, 1024 * 1024) catch |err| {
+    const file_contents = std.fs.cwd().readFileAlloc(file_path, allocator, @as(std.Io.Limit, @enumFromInt(1024 * 1024))) catch |err| {
         std.log.err("Failed to read file {s}: {}", .{file_path, err});
         return;
     };
@@ -1520,9 +1543,9 @@ fn printUsage() !void {
 }
 
 test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
+    var list = std.ArrayList(i32){};
+    defer list.deinit(std.testing.allocator); // Try commenting this out and see if zig detects the memory leak!
+    try list.append(std.testing.allocator, 42);
     try std.testing.expectEqual(@as(i32, 42), list.pop());
 }
 

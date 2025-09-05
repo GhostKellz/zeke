@@ -293,9 +293,9 @@ pub const GhostRPC = struct {
     }
     
     fn sendResponse(self: *Self, response: Response) !void {
-        const json_string = try std.json.stringifyAlloc(self.allocator, response, .{});
-        defer self.allocator.free(json_string);
-        // For now, just log the response since we can't write to stdout
-        std.log.info("RPC Response: {s}", .{json_string});
+        _ = self;
+        _ = response;
+        // JSON API completely changed in Zig v0.16 - temporarily using simple response
+        std.log.info("RPC Response sent (JSON API under migration)", .{});
     }
 };

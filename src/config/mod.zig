@@ -128,12 +128,12 @@ pub const Config = struct {
     pub fn init(allocator: std.mem.Allocator) Self {
         return Self{
             .allocator = allocator,
-            .models = std.ArrayList(ModelConfig).init(allocator),
+            .models = std.ArrayList(ModelConfig){},
         };
     }
     
     pub fn deinit(self: *Self) void {
-        self.models.deinit();
+        self.models.deinit(self.allocator);
         
         if (self.github_token) |token| {
             self.allocator.free(token);
@@ -290,35 +290,35 @@ pub const Config = struct {
     }
     
     pub fn addDefaultModels(self: *Self) !void {
-        try self.models.append(ModelConfig{
+        try self.models.append(self.allocator, ModelConfig{
             .name = "gpt-4",
             .provider = "openai",
             .temperature = 0.7,
             .max_tokens = 1000,
         });
         
-        try self.models.append(ModelConfig{
+        try self.models.append(self.allocator, ModelConfig{
             .name = "gpt-3.5-turbo",
             .provider = "openai",
             .temperature = 0.7,
             .max_tokens = 1000,
         });
         
-        try self.models.append(ModelConfig{
+        try self.models.append(self.allocator, ModelConfig{
             .name = "claude-3-5-sonnet-20241022",
             .provider = "claude",
             .temperature = 0.7,
             .max_tokens = 1000,
         });
         
-        try self.models.append(ModelConfig{
+        try self.models.append(self.allocator, ModelConfig{
             .name = "copilot-codex",
             .provider = "copilot",
             .temperature = 0.3,
             .max_tokens = 500,
         });
         
-        try self.models.append(ModelConfig{
+        try self.models.append(self.allocator, ModelConfig{
             .name = "ghostllm-model",
             .provider = "ghostllm",
             .temperature = 0.7,

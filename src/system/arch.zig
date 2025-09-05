@@ -49,8 +49,8 @@ pub const ArchSystem = struct {
     
     /// Check for system updates
     pub fn checkUpdates(self: *Self) ![]PackageUpdate {
-        var updates = std.ArrayList(PackageUpdate).init(self.allocator);
-        defer updates.deinit();
+        var updates = std.ArrayList(PackageUpdate){};
+        defer updates.deinit(self.allocator);
         
         // Run pacman -Qu to check for updates
         var child = std.process.Child.init(&[_][]const u8{ "pacman", "-Qu" }, self.allocator);
@@ -69,7 +69,7 @@ pub const ArchSystem = struct {
         
         if (exit_code != .Exited or exit_code.Exited != 0) {
             std.log.warn("pacman -Qu failed: {s}", .{stderr});
-            return updates.toOwnedSlice();
+            return updates.toOwnedSlice(self.allocator);
         }
         
         // Parse pacman output
@@ -84,7 +84,7 @@ pub const ArchSystem = struct {
             const new_version = parts.next() orelse continue;
             
             if (std.mem.eql(u8, arrow, "->")) {
-                try updates.append(PackageUpdate{
+                try updates.append(self.allocator, PackageUpdate{
                     .name = try self.allocator.dupe(u8, package_name),
                     .old_version = try self.allocator.dupe(u8, old_version),
                     .new_version = try self.allocator.dupe(u8, new_version),
@@ -92,7 +92,7 @@ pub const ArchSystem = struct {
             }
         }
         
-        return updates.toOwnedSlice();
+        return updates.toOwnedSlice(self.allocator);
     }
     
     /// Create and manage btrfs snapshots
@@ -121,13 +121,13 @@ pub const ArchSystem = struct {
     
     /// List available btrfs snapshots
     pub fn listSnapshots(self: *Self) ![][]const u8 {
-        var snapshots = std.ArrayList([]const u8).init(self.allocator);
-        defer snapshots.deinit();
+        var snapshots = std.ArrayList([]const u8){};
+        defer snapshots.deinit(self.allocator);
         
         // Check if snapshots directory exists
         const snapshots_dir = std.fs.openDirAbsolute("/.snapshots", .{ .iterate = true }) catch |err| {
             if (err == error.FileNotFound) {
-                return snapshots.toOwnedSlice();
+                return snapshots.toOwnedSlice(self.allocator);
             }
             return err;
         };
@@ -136,11 +136,11 @@ pub const ArchSystem = struct {
         var iterator = snapshots_dir.iterate();
         while (try iterator.next()) |entry| {
             if (entry.kind == .directory) {
-                try snapshots.append(try self.allocator.dupe(u8, entry.name));
+                try snapshots.append(self.allocator, try self.allocator.dupe(u8, entry.name));
             }
         }
         
-        return snapshots.toOwnedSlice();
+        return snapshots.toOwnedSlice(self.allocator);
     }
     
     /// Delete a btrfs snapshot
@@ -196,7 +196,7 @@ pub const ArchSystem = struct {
     /// Get GPU information for potential eGPU support
     pub fn getGPUInfo(self: *Self) !GPUInfo {
         var gpu_info = GPUInfo{
-            .cards = std.ArrayList(GPUCard).init(self.allocator),
+            .cards = std.ArrayList(GPUCard){},
             .has_egpu = false,
         };
         
@@ -228,7 +228,7 @@ pub const ArchSystem = struct {
                     .is_external = try self.isExternalGPU(entry.name),
                 };
                 
-                try gpu_info.cards.append(card);
+                try gpu_info.cards.append(self.allocator, card);
                 
                 if (card.is_external) {
                     gpu_info.has_egpu = true;
@@ -358,8 +358,8 @@ pub const ArchSystem = struct {
     }
     
     fn getInstalledPackages(self: *Self) ![][]const u8 {
-        var packages = std.ArrayList([]const u8).init(self.allocator);
-        defer packages.deinit();
+        var packages = std.ArrayList([]const u8){};
+        defer packages.deinit(self.allocator);
         
         var child = std.process.Child.init(&[_][]const u8{ "pacman", "-Q" }, self.allocator);
         child.stdout_behavior = .Pipe;
@@ -377,10 +377,10 @@ pub const ArchSystem = struct {
             
             var parts = std.mem.split(u8, line, " ");
             const package_name = parts.next() orelse continue;
-            try packages.append(try self.allocator.dupe(u8, package_name));
+            try packages.append(self.allocator, try self.allocator.dupe(u8, package_name));
         }
         
-        return packages.toOwnedSlice();
+        return packages.toOwnedSlice(self.allocator);
     }
     
     fn isBtrfsAvailable(self: *Self) !bool {
@@ -404,8 +404,8 @@ pub const ArchSystem = struct {
     }
     
     fn getOrphanedPackages(self: *Self) ![][]const u8 {
-        var packages = std.ArrayList([]const u8).init(self.allocator);
-        defer packages.deinit();
+        var packages = std.ArrayList([]const u8){};
+        defer packages.deinit(self.allocator);
         
         var child = std.process.Child.init(&[_][]const u8{ "pacman", "-Qtdq" }, self.allocator);
         child.stdout_behavior = .Pipe;
@@ -421,10 +421,10 @@ pub const ArchSystem = struct {
         var lines = std.mem.split(u8, stdout, "\n");
         while (lines.next()) |line| {
             if (line.len == 0) continue;
-            try packages.append(try self.allocator.dupe(u8, line));
+            try packages.append(self.allocator, try self.allocator.dupe(u8, line));
         }
         
-        return packages.toOwnedSlice();
+        return packages.toOwnedSlice(self.allocator);
     }
     
     fn getCacheSize(self: *Self) !u64 {
@@ -464,8 +464,8 @@ pub const ArchSystem = struct {
     }
     
     fn getFailedServices(self: *Self) ![][]const u8 {
-        var services = std.ArrayList([]const u8).init(self.allocator);
-        defer services.deinit();
+        var services = std.ArrayList([]const u8){};
+        defer services.deinit(self.allocator);
         
         var child = std.process.Child.init(&[_][]const u8{ "systemctl", "--failed", "--no-legend" }, self.allocator);
         child.stdout_behavior = .Pipe;
@@ -483,10 +483,10 @@ pub const ArchSystem = struct {
             
             var parts = std.mem.split(u8, line, " ");
             const service_name = parts.next() orelse continue;
-            try services.append(try self.allocator.dupe(u8, service_name));
+            try services.append(self.allocator, try self.allocator.dupe(u8, service_name));
         }
         
-        return services.toOwnedSlice();
+        return services.toOwnedSlice(self.allocator);
     }
     
     fn cleanPackageCache(self: *Self) !void {
@@ -505,11 +505,11 @@ pub const ArchSystem = struct {
         
         if (orphans.len == 0) return;
         
-        var args = std.ArrayList([]const u8).init(self.allocator);
-        defer args.deinit();
+        var args = std.ArrayList([]const u8){};
+        defer args.deinit(self.allocator);
         
-        try args.appendSlice(&[_][]const u8{ "pacman", "-Rns", "--noconfirm" });
-        try args.appendSlice(orphans);
+        try args.appendSlice(self.allocator, &[_][]const u8{ "pacman", "-Rns", "--noconfirm" });
+        try args.appendSlice(self.allocator, orphans);
         
         var child = std.process.Child.init(args.items, self.allocator);
         _ = try child.spawnAndWait();
@@ -556,7 +556,7 @@ pub const GPUInfo = struct {
         for (self.cards.items) |*card| {
             card.deinit(allocator);
         }
-        self.cards.deinit();
+        self.cards.deinit(allocator);
     }
 };
 

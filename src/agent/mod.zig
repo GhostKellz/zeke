@@ -98,17 +98,17 @@ pub const AgentManager = struct {
     
     pub fn init(allocator: std.mem.Allocator) Self {
         return Self{
-            .agents = std.ArrayList(*Agent).init(allocator),
+            .agents = std.ArrayList(*Agent){},
             .allocator = allocator,
         };
     }
     
     pub fn deinit(self: *Self) void {
-        self.agents.deinit();
+        self.agents.deinit(self.allocator);
     }
     
     pub fn registerAgent(self: *Self, agent: *Agent) !void {
-        try self.agents.append(agent);
+        try self.agents.append(self.allocator, agent);
         try agent.initialize(agent, self.allocator);
     }
     

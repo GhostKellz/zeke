@@ -5,8 +5,8 @@ const formatting = @import("formatting.zig");
 pub fn handleFileRead(allocator: std.mem.Allocator, file_path: []const u8) !void {
     var formatter = formatting.Formatter.init(allocator, .plain);
     
-    const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
-        const error_msg = try std.fmt.allocPrint(allocator, "Failed to open file '{s}': {}", .{ file_path, err });
+    const content = std.fs.cwd().readFileAlloc(file_path, allocator, @as(std.Io.Limit, @enumFromInt(1024 * 1024))) catch |err| {
+        const error_msg = try std.fmt.allocPrint(allocator, "Failed to read file '{s}': {}", .{ file_path, err });
         defer allocator.free(error_msg);
         
         const formatted_error = try formatter.formatError(error_msg);
@@ -15,21 +15,6 @@ pub fn handleFileRead(allocator: std.mem.Allocator, file_path: []const u8) !void
         std.debug.print("{s}", .{formatted_error});
         return;
     };
-    defer file.close();
-    
-    const file_size = try file.getEndPos();
-    if (file_size > 1024 * 1024) { // 1MB limit
-        const error_msg = try std.fmt.allocPrint(allocator, "File '{s}' is too large ({}MB). Maximum size is 1MB", .{ file_path, file_size / (1024 * 1024) });
-        defer allocator.free(error_msg);
-        
-        const formatted_error = try formatter.formatError(error_msg);
-        defer allocator.free(formatted_error);
-        
-        std.debug.print("{s}", .{formatted_error});
-        return;
-    }
-    
-    const content = try file.readToEndAlloc(allocator, file_size);
     defer allocator.free(content);
     
     // Detect language from file extension
@@ -82,8 +67,8 @@ pub fn handleFileEdit(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, f
     var formatter = formatting.Formatter.init(allocator, .plain);
     
     // Read current file content
-    const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
-        const error_msg = try std.fmt.allocPrint(allocator, "Failed to open file '{s}': {}", .{ file_path, err });
+    const content = std.fs.cwd().readFileAlloc(file_path, allocator, @as(std.Io.Limit, @enumFromInt(1024 * 1024))) catch |err| {
+        const error_msg = try std.fmt.allocPrint(allocator, "Failed to read file '{s}': {}", .{ file_path, err });
         defer allocator.free(error_msg);
         
         const formatted_error = try formatter.formatError(error_msg);
@@ -92,10 +77,6 @@ pub fn handleFileEdit(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, f
         std.debug.print("{s}", .{formatted_error});
         return;
     };
-    defer file.close();
-    
-    const file_size = try file.getEndPos();
-    const content = try file.readToEndAlloc(allocator, file_size);
     defer allocator.free(content);
     
     // Create edit prompt

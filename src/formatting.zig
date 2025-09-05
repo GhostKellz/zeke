@@ -98,21 +98,21 @@ pub const Formatter = struct {
     }
     
     fn escapeJsonString(self: *Formatter, input: []const u8) ![]const u8 {
-        var result = std.ArrayList(u8).init(self.allocator);
-        defer result.deinit();
+        var result = std.ArrayList(u8){};
+        defer result.deinit(self.allocator);
         
         for (input) |char| {
             switch (char) {
-                '"' => try result.appendSlice("\\\""),
-                '\\' => try result.appendSlice("\\\\"),
-                '\n' => try result.appendSlice("\\n"),
-                '\r' => try result.appendSlice("\\r"),
-                '\t' => try result.appendSlice("\\t"),
-                else => try result.append(char),
+                '"' => try result.appendSlice(self.allocator, "\\\""),
+                '\\' => try result.appendSlice(self.allocator, "\\\\"),
+                '\n' => try result.appendSlice(self.allocator, "\\n"),
+                '\r' => try result.appendSlice(self.allocator, "\\r"),
+                '\t' => try result.appendSlice(self.allocator, "\\t"),
+                else => try result.append(self.allocator, char),
             }
         }
         
-        return result.toOwnedSlice();
+        return result.toOwnedSlice(self.allocator);
     }
     
     pub fn formatCodeBlock(self: *Formatter, code: []const u8, language: ?[]const u8) ![]const u8 {

@@ -143,7 +143,7 @@ pub const ProjectContextCache = struct {
                     child.deinit(allocator);
                     allocator.destroy(child);
                 }
-                self.children.deinit();
+                self.children.deinit(allocator);
             }
         };
         
@@ -178,7 +178,7 @@ pub const ProjectContextCache = struct {
             for (self.file_tree.items) |*node| {
                 node.deinit(allocator);
             }
-            self.file_tree.deinit();
+            self.file_tree.deinit(allocator);
         }
     };
     
@@ -268,18 +268,18 @@ pub const ProjectContextCache = struct {
     fn parseFileContent(self: *Self, file_path: []const u8, content: []const u8, content_hash: u64) !CachedContext {
         const language = try self.detectLanguage(file_path);
         
-        var imports = std.ArrayList([]const u8).init(self.allocator);
-        var exports = std.ArrayList([]const u8).init(self.allocator);
-        var functions = std.ArrayList(FunctionInfo).init(self.allocator);
-        var types = std.ArrayList(TypeInfo).init(self.allocator);
-        var symbols = std.ArrayList(SymbolInfo).init(self.allocator);
+        var imports = std.ArrayList([]const u8){};
+        var exports = std.ArrayList([]const u8){};
+        var functions = std.ArrayList(FunctionInfo){};
+        var types = std.ArrayList(TypeInfo){};
+        var symbols = std.ArrayList(SymbolInfo){};
         
         defer {
-            imports.deinit();
-            exports.deinit();
-            functions.deinit();
-            types.deinit();
-            symbols.deinit();
+            imports.deinit(self.allocator);
+            exports.deinit(self.allocator);
+            functions.deinit(self.allocator);
+            types.deinit(self.allocator);
+            symbols.deinit(self.allocator);
         }
         
         // Parse based on language
@@ -298,11 +298,11 @@ pub const ProjectContextCache = struct {
             .file_path = try self.allocator.dupe(u8, file_path),
             .content_hash = content_hash,
             .language = language,
-            .imports = try imports.toOwnedSlice(),
-            .exports = try exports.toOwnedSlice(),
-            .functions = try functions.toOwnedSlice(),
-            .types = try types.toOwnedSlice(),
-            .symbols = try symbols.toOwnedSlice(),
+            .imports = try imports.toOwnedSlice(self.allocator),
+            .exports = try exports.toOwnedSlice(self.allocator),
+            .functions = try functions.toOwnedSlice(self.allocator),
+            .types = try types.toOwnedSlice(self.allocator),
+            .symbols = try symbols.toOwnedSlice(self.allocator),
             .timestamp = std.time.timestamp(),
             .access_count = 1,
         };
@@ -573,10 +573,10 @@ pub const ProjectContextCache = struct {
     fn updateDependencies(self: *Self, file_path: []const u8, imports: [][]const u8) !void {
         // Store file dependencies
         const key = try self.allocator.dupe(u8, file_path);
-        var deps = std.ArrayList([]const u8).init(self.allocator);
+        var deps = std.ArrayList([]const u8){};
         
         for (imports) |import| {
-            try deps.append(try self.allocator.dupe(u8, import));
+            try deps.append(self.allocator, try self.allocator.dupe(u8, import));
         }
         
         // Remove existing dependencies if any
@@ -587,7 +587,7 @@ pub const ProjectContextCache = struct {
             self.allocator.free(existing);
         }
         
-        try self.file_dependencies.put(key, try deps.toOwnedSlice());
+        try self.file_dependencies.put(key, try deps.toOwnedSlice(self.allocator));
     }
     
     fn evictOldestEntry(self: *Self) !void {
@@ -629,12 +629,12 @@ pub const ProjectContextCache = struct {
     fn buildProjectStructure(self: *Self, project_path: []const u8) !ProjectStructure {
         const structure = ProjectStructure{
             .root_path = try self.allocator.dupe(u8, project_path),
-            .languages = std.ArrayList([]const u8).init(self.allocator),
-            .build_files = std.ArrayList([]const u8).init(self.allocator),
-            .config_files = std.ArrayList([]const u8).init(self.allocator),
-            .main_files = std.ArrayList([]const u8).init(self.allocator),
-            .test_files = std.ArrayList([]const u8).init(self.allocator),
-            .file_tree = std.ArrayList(ProjectStructure.FileNode).init(self.allocator),
+            .languages = std.ArrayList([]const u8){},
+            .build_files = std.ArrayList([]const u8){},
+            .config_files = std.ArrayList([]const u8){},
+            .main_files = std.ArrayList([]const u8){},
+            .test_files = std.ArrayList([]const u8){},
+            .file_tree = std.ArrayList(ProjectStructure.FileNode){},
         };
         
         // TODO: Implement recursive directory traversal
@@ -653,12 +653,12 @@ pub const ProjectContextCache = struct {
     }
     
     pub fn getRelatedFiles(self: *Self, file_path: []const u8, allocator: std.mem.Allocator) ![][]const u8 {
-        var related = std.ArrayList([]const u8).init(allocator);
+        var related = std.ArrayList([]const u8){};
         
         // Add direct dependencies
         if (self.getDependencies(file_path)) |deps| {
             for (deps) |dep| {
-                try related.append(try allocator.dupe(u8, dep));
+                try related.append(allocator, try allocator.dupe(u8, dep));
             }
         }
         
@@ -676,7 +676,7 @@ pub const ProjectContextCache = struct {
             }
         }
         
-        return related.toOwnedSlice();
+        return related.toOwnedSlice(allocator);
     }
     
     pub fn getCacheStats(self: *const Self) struct { hits: u64, misses: u64, size: u32 } {

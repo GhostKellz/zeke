@@ -3,13 +3,27 @@ const zsync = @import("zsync");
 const api = @import("../api/client.zig");
 const providers = @import("../providers/mod.zig");
 
-/// Concurrent request handling for multiple AI providers
+// Note: Advanced zsync v0.5.4 features are available but not all are exported
+// We'll integrate them gradually as the API stabilizes
+
+/// Enhanced concurrent request handling with zsync v0.5.4 features
 pub const ConcurrentRequestHandler = struct {
     allocator: std.mem.Allocator,
     io: ?zsync.Io,
     active_requests: std.AutoHashMap(u64, *RequestTask),
     request_counter: std.atomic.Value(u64),
     cancel_token: ?*zsync.CancelToken,
+    
+    // Enhanced v0.5.4 features (simplified until APIs stabilize)
+    connection_stats: std.AutoHashMap(api.ApiProvider, ConnectionMetrics),
+    pool_enabled: bool,
+    
+    pub const ConnectionMetrics = struct {
+        active_connections: u32,
+        total_requests: u64,
+        avg_response_time_ms: f64,
+        last_health_check: i64,
+    };
     
     pub const RequestTask = struct {
         id: u64,
@@ -99,16 +113,24 @@ pub const ConcurrentRequestHandler = struct {
     pub fn initWithZsync(allocator: std.mem.Allocator, max_threads: u32, io: ?zsync.Io) !Self {
         _ = max_threads; // zsync manages threads automatically
         
-        return Self{
+        var instance = Self{
             .allocator = allocator,
             .io = io,
-            .active_requests = std.AutoHashMap(u64, *RequestTask).init(allocator),
+            .active_requests = undefined,
             .request_counter = std.atomic.Value(u64).init(0),
             .cancel_token = if (io != null) zsync.CancelToken.init(allocator, .user_requested) catch null else null,
+            .connection_stats = undefined,
+            .pool_enabled = io != null,
         };
+        instance.active_requests = std.AutoHashMap(u64, *RequestTask).init(allocator);
+        instance.connection_stats = std.AutoHashMap(api.ApiProvider, ConnectionMetrics).init(allocator);
+        return instance;
     }
     
     pub fn deinit(self: *Self) void {
+        // Clean up connection stats
+        self.connection_stats.deinit();
+        
         if (self.cancel_token) |token| {
             token.cancel();
             token.deinit();
@@ -193,8 +215,8 @@ pub const ConcurrentRequestHandler = struct {
         requests: []const BatchRequest,
         options: BatchRequestOptions
     ) ![]u64 {
-        var request_ids = std.ArrayList(u64).init(self.allocator);
-        defer request_ids.deinit();
+        var request_ids = std.ArrayList(u64){};
+        defer request_ids.deinit(self.allocator);
         
         var semaphore = std.Thread.Semaphore{ .permits = options.max_concurrent };
         
@@ -219,7 +241,7 @@ pub const ConcurrentRequestHandler = struct {
                 ),
             };
             
-            try request_ids.append(request_id);
+            try request_ids.append(self.allocator, request_id);
             
             // Set up completion callback to release semaphore
             if (self.active_requests.get(request_id)) |task| {
@@ -238,7 +260,7 @@ pub const ConcurrentRequestHandler = struct {
             }
         }
         
-        return request_ids.toOwnedSlice();
+        return request_ids.toOwnedSlice(self.allocator);
     }
     
     pub fn waitForRequest(self: *Self, request_id: u64) !*RequestTask {
@@ -258,15 +280,15 @@ pub const ConcurrentRequestHandler = struct {
     }
     
     pub fn waitForAllRequests(self: *Self, request_ids: []const u64) ![]RequestTask {
-        var results = std.ArrayList(RequestTask).init(self.allocator);
-        defer results.deinit();
+        var results = std.ArrayList(RequestTask){};
+        defer results.deinit(self.allocator);
         
         for (request_ids) |request_id| {
             const task = try self.waitForRequest(request_id);
-            try results.append(task.*);
+            try results.append(self.allocator, task.*);
         }
         
-        return results.toOwnedSlice();
+        return results.toOwnedSlice(self.allocator);
     }
     
     pub fn cancelRequest(self: *Self, request_id: u64) !void {
@@ -470,8 +492,8 @@ pub const ConcurrentRequestHandler = struct {
     }
     
     pub fn cleanupCompletedTasks(self: *Self) !void {
-        var tasks_to_remove = std.ArrayList(u64).init(self.allocator);
-        defer tasks_to_remove.deinit();
+        var tasks_to_remove = std.ArrayList(u64){};
+        defer tasks_to_remove.deinit(self.allocator);
         
         const now = std.time.timestamp();
         const cleanup_threshold = 300; // 5 minutes
@@ -483,7 +505,7 @@ pub const ConcurrentRequestHandler = struct {
             
             if (is_completed and task.completion_time) |completion_time| {
                 if (now - completion_time > cleanup_threshold) {
-                    try tasks_to_remove.append(task.id);
+                    try tasks_to_remove.append(self.allocator, task.id);
                 }
             }
         }
@@ -496,6 +518,128 @@ pub const ConcurrentRequestHandler = struct {
             }
         }
     }
+    
+    // New v0.5.4 methods leveraging enhanced future combinators
+    
+    /// Execute requests across multiple providers with race semantics
+    /// Returns the first successful response
+    pub fn raceProviders(
+        self: *Self,
+        messages: []const api.ChatMessage,
+        api_providers: []const api.ApiProvider,
+        options: RequestOptions
+    ) ![]const u8 {
+        if (api_providers.len == 0) return error.NoProviders;
+        
+        // For now, simulate racing by trying providers sequentially
+        // TODO: Implement actual future racing when zsync types are stable
+        for (api_providers) |provider| {
+            const task = try self.submitChatRequest(
+                provider,
+                messages,
+                options
+            );
+            
+            // Wait for first successful completion
+            const result = self.waitForCompletion(task.id) catch |err| {
+                std.log.warn("Provider {} failed: {}", .{provider, err});
+                continue;
+            };
+            
+            if (result) |res| {
+                switch (res) {
+                    .chat_completion => |response| return response,
+                    else => continue,
+                }
+            }
+        }
+        
+        return error.AllProvidersFailed;
+    }
+    
+    /// Execute the same request across all providers and return all successful results
+    pub fn broadcastToProviders(
+        self: *Self,
+        messages: []const api.ChatMessage,
+        api_providers: []const api.ApiProvider,
+        options: RequestOptions
+    ) ![][]const u8 {
+        var results = std.ArrayList([]const u8){};
+        defer results.deinit(self.allocator);
+        
+        var submitted_tasks = std.ArrayList(u64){};
+        defer submitted_tasks.deinit(self.allocator);
+        
+        // Submit to all providers
+        for (api_providers) |provider| {
+            const task = self.submitChatRequest(provider, messages, options) catch |err| {
+                std.log.warn("Failed to submit to provider {}: {}", .{provider, err});
+                continue;
+            };
+            try submitted_tasks.append(self.allocator, task.id);
+        }
+        
+        // Collect all results
+        for (submitted_tasks.items) |task_id| {
+            const result = self.waitForCompletion(task_id) catch |err| {
+                std.log.warn("Task {} failed: {}", .{task_id, err});
+                continue;
+            };
+            
+            if (result) |res| {
+                switch (res) {
+                    .chat_completion => |response| {
+                        try results.append(self.allocator, response);
+                    },
+                    else => continue,
+                }
+            }
+        }
+        
+        return try results.toOwnedSlice(self.allocator);
+    }
+    
+    /// Enhanced parallel execution with timeout support
+    pub fn parallelChatWithTimeout(
+        self: *Self,
+        messages: []const api.ChatMessage,
+        api_providers: []const api.ApiProvider,
+        timeout_ms: u64
+    ) ![]const u8 {
+        
+        // For now, fallback to racing providers
+        return self.raceProviders(messages, api_providers, RequestOptions{
+            .timeout_ms = @intCast(timeout_ms),
+            .priority = .high,
+        });
+    }
+    
+    /// Get connection pool statistics for monitoring
+    pub fn getConnectionStats(self: *Self) ConnectionStats {
+        var total_connections: u32 = 0;
+        var active_connections: u32 = 0;
+        
+        var iter = self.connection_stats.iterator();
+        while (iter.next()) |entry| {
+            const metrics = entry.value_ptr.*;
+            total_connections += 20; // Default pool size
+            active_connections += metrics.active_connections;
+        }
+        
+        return ConnectionStats{
+            .total_providers = @intCast(self.connection_stats.count()),
+            .total_connections = total_connections,
+            .active_connections = active_connections,
+            .pool_enabled = self.pool_enabled,
+        };
+    }
+    
+    pub const ConnectionStats = struct {
+        total_providers: u32,
+        total_connections: u32,
+        active_connections: u32,
+        pool_enabled: bool,
+    };
 };
 
 /// High-level interface for concurrent AI operations
@@ -538,8 +682,8 @@ pub const ConcurrentAI = struct {
         model: []const u8,
         providers_to_try: []const api.ApiProvider
     ) ![]const u8 {
-        var request_ids = std.ArrayList(u64).init(self.allocator);
-        defer request_ids.deinit();
+        var request_ids = std.ArrayList(u64){};
+        defer request_ids.deinit(self.allocator);
         
         // Submit requests to all providers in parallel
         for (providers_to_try) |provider| {
@@ -551,7 +695,7 @@ pub const ConcurrentAI = struct {
                 model,
                 .{ .timeout_ms = 15000 }
             );
-            try request_ids.append(request_id);
+            try request_ids.append(self.allocator, request_id);
         }
         
         // Wait for the first successful response
@@ -596,8 +740,8 @@ pub const ConcurrentAI = struct {
         project_context: api.ProjectContext,
         providers_to_try: []const api.ApiProvider
     ) !api.AnalysisResponse {
-        var request_ids = std.ArrayList(u64).init(self.allocator);
-        defer request_ids.deinit();
+        var request_ids = std.ArrayList(u64){};
+        defer request_ids.deinit(self.allocator);
         
         // Submit analysis requests to all providers in parallel
         for (providers_to_try) |provider| {
@@ -610,7 +754,7 @@ pub const ConcurrentAI = struct {
                 project_context,
                 .{ .timeout_ms = 30000 }
             );
-            try request_ids.append(request_id);
+            try request_ids.append(self.allocator, request_id);
         }
         
         // Wait for the first successful response

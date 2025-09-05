@@ -14,12 +14,12 @@ pub const CLIStreamHandler = struct {
         return Self{
             .allocator = allocator,
             .formatter = formatting.Formatter.init(allocator, .plain),
-            .buffer = std.ArrayList(u8).init(allocator),
+            .buffer = std.ArrayList(u8){},
         };
     }
     
     pub fn deinit(self: *Self) void {
-        self.buffer.deinit();
+        self.buffer.deinit(self.allocator);
     }
     
     pub fn startStreaming(self: *Self, task_type: []const u8) !void {
@@ -50,7 +50,7 @@ pub const CLIStreamHandler = struct {
     pub fn handleStreamChunk(self: *Self, chunk: streaming.StreamChunk) !void {
         if (chunk.content.len > 0) {
             // Add chunk to buffer
-            try self.buffer.appendSlice(chunk.content);
+            try self.buffer.appendSlice(self.allocator, chunk.content);
             
             // Print the chunk immediately for real-time effect
             try self.printWithFlush(chunk.content);
@@ -168,7 +168,7 @@ pub fn simulateStreamingResponse(allocator: std.mem.Allocator, response: []const
         try stream_handler.handleStreamChunk(chunk);
         
         // Add small delay for typing effect
-        std.time.sleep(50 * std.time.ns_per_ms);
+        std.Thread.sleep(50 * std.time.ns_per_ms);
         
         i = end;
     }

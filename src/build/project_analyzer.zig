@@ -134,10 +134,10 @@ pub const ProjectAnalyzer = struct {
         defer self.allocator.free(file_content);
         
         // Simple parsing - look for dependency patterns
-        var dependencies = std.ArrayList(Dependency).init(self.allocator);
+        var dependencies = std.ArrayList(Dependency){};
         errdefer {
             for (dependencies.items) |*dep| dep.deinit(self.allocator);
-            dependencies.deinit();
+            dependencies.deinit(self.allocator);
         }
         
         // Parse dependencies from .dependencies section
@@ -153,13 +153,13 @@ pub const ProjectAnalyzer = struct {
                 if (std.mem.startsWith(u8, trimmed, ".") and std.mem.indexOf(u8, trimmed, "=")) |_| {
                     const dep = try self.parseDepLine(trimmed);
                     if (dep) |d| {
-                        try dependencies.append(d);
+                        try dependencies.append(self.allocator, d);
                     }
                 }
             }
         }
         
-        return dependencies.toOwnedSlice();
+        return dependencies.toOwnedSlice(self.allocator);
     }
     
     fn parseDepLine(self: *Self, line: []const u8) !?Dependency {
@@ -216,10 +216,10 @@ pub const ProjectAnalyzer = struct {
         };
         defer self.allocator.free(file_content);
         
-        var issues = std.ArrayList(BuildIssue).init(self.allocator);
+        var issues = std.ArrayList(BuildIssue){};
         errdefer {
             for (issues.items) |*issue| issue.deinit(self.allocator);
-            issues.deinit();
+            issues.deinit(self.allocator);
         }
         
         var opt_level: ?[]const u8 = null;
@@ -277,7 +277,7 @@ pub const ProjectAnalyzer = struct {
         return BuildInfo{
             .optimization_level = opt_level,
             .target_info = target_info,
-            .issues = try issues.toOwnedSlice(),
+            .issues = try issues.toOwnedSlice(self.allocator),
         };
     }
     

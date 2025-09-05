@@ -365,15 +365,15 @@ pub const Zeke = struct {
     }
     
     pub fn getProviderStatus(self: *Self) ![]providers.ProviderHealth {
-        var status_list = std.ArrayList(providers.ProviderHealth).init(self.allocator);
+        var status_list = std.ArrayList(providers.ProviderHealth){};
         
         const provider_list = [_]api.ApiProvider{ .ghostllm, .claude, .openai, .copilot, .ollama };
         for (provider_list) |provider| {
             if (self.provider_manager.getProviderHealth(provider)) |health| {
-                try status_list.append(health);
+                try status_list.append(self.allocator, health);
             } else {
                 // Create default health status
-                try status_list.append(providers.ProviderHealth{
+                try status_list.append(self.allocator, providers.ProviderHealth{
                     .provider = provider,
                     .is_healthy = false,
                     .last_check = 0,
@@ -383,7 +383,7 @@ pub const Zeke = struct {
             }
         }
         
-        return status_list.toOwnedSlice();
+        return status_list.toOwnedSlice(self.allocator);
     }
     
     // Enhanced error handling and diagnostics
@@ -464,10 +464,10 @@ pub const Zeke = struct {
         defer self.allocator.free(request_body);
         
         // Prepare headers
-        var headers = std.ArrayList(std.http.Header).init(self.allocator);
-        defer headers.deinit();
+        var headers = std.ArrayList(std.http.Header){};
+        defer headers.deinit(self.allocator);
         
-        try headers.append(.{ .name = "content-type", .value = "application/json" });
+        try headers.append(self.allocator, .{ .name = "content-type", .value = "application/json" });
         
         if (self.api_client.auth_token) |token| {
             const auth_header = switch (self.current_provider) {
@@ -480,7 +480,7 @@ pub const Zeke = struct {
             defer self.allocator.free(auth_header);
             
             if (self.current_provider != .ollama) {
-                try headers.append(.{ .name = "authorization", .value = auth_header });
+                try headers.append(self.allocator, .{ .name = "authorization", .value = auth_header });
             }
         }
         
@@ -503,9 +503,9 @@ pub const Zeke = struct {
         defer self.allocator.free(request_body);
         
         // Prepare headers (similar to streamChat)
-        var headers = std.ArrayList(std.http.Header).init(self.allocator);
-        defer headers.deinit();
-        try headers.append(.{ .name = "content-type", .value = "application/json" });
+        var headers = std.ArrayList(std.http.Header){};
+        defer headers.deinit(self.allocator);
+        try headers.append(self.allocator, .{ .name = "content-type", .value = "application/json" });
         
         if (self.realtime_features) |*rt| {
             // Convert headers to slice with proper type
@@ -528,34 +528,34 @@ pub const Zeke = struct {
     
     // Helper methods for building streaming requests
     fn buildStreamingChatRequest(self: *Self, messages: []const api.ChatMessage, model: []const u8) ![]const u8 {
-        var request = std.ArrayList(u8).init(self.allocator);
-        defer request.deinit();
+        var request = std.ArrayList(u8){};
+        defer request.deinit(self.allocator);
         
-        try request.appendSlice("{\"model\":\"");
-        try request.appendSlice(model);
-        try request.appendSlice("\",\"stream\":true,\"messages\":[");
+        try request.appendSlice(self.allocator, "{\"model\":\"");
+        try request.appendSlice(self.allocator, model);
+        try request.appendSlice(self.allocator, "\",\"stream\":true,\"messages\":[");
         
         for (messages, 0..) |msg, i| {
-            if (i > 0) try request.appendSlice(",");
-            try request.appendSlice("{\"role\":\"");
-            try request.appendSlice(msg.role);
-            try request.appendSlice("\",\"content\":\"");
+            if (i > 0) try request.appendSlice(self.allocator, ",");
+            try request.appendSlice(self.allocator, "{\"role\":\"");
+            try request.appendSlice(self.allocator, msg.role);
+            try request.appendSlice(self.allocator, "\",\"content\":\"");
             // Escape the content properly
             for (msg.content) |char| {
                 switch (char) {
-                    '"' => try request.appendSlice("\\\""),
-                    '\\' => try request.appendSlice("\\\\"),
-                    '\n' => try request.appendSlice("\\n"),
-                    '\r' => try request.appendSlice("\\r"),
-                    '\t' => try request.appendSlice("\\t"),
-                    else => try request.append(char),
+                    '"' => try request.appendSlice(self.allocator, "\\\""),
+                    '\\' => try request.appendSlice(self.allocator, "\\\\"),
+                    '\n' => try request.appendSlice(self.allocator, "\\n"),
+                    '\r' => try request.appendSlice(self.allocator, "\\r"),
+                    '\t' => try request.appendSlice(self.allocator, "\\t"),
+                    else => try request.append(self.allocator, char),
                 }
             }
-            try request.appendSlice("\"}");
+            try request.appendSlice(self.allocator, "\"}");
         }
         
-        try request.appendSlice("]}");
-        return request.toOwnedSlice();
+        try request.appendSlice(self.allocator, "]}");
+        return request.toOwnedSlice(self.allocator);
     }
     
     fn buildStreamingCompletionRequest(self: *Self, prompt: []const u8, code_context: api.CodeContext) ![]const u8 {

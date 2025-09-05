@@ -203,11 +203,11 @@ pub const ProviderManager = struct {
     }
     
     pub fn selectProvidersWithFallback(self: *Self, capability: ProviderCapability, allocator: std.mem.Allocator) ![]api.ApiProvider {
-        var providers = std.ArrayList(api.ApiProvider).init(allocator);
+        var providers = std.ArrayList(api.ApiProvider){};
         
         // Get the best provider
         if (try self.selectBestProvider(capability)) |primary| {
-            try providers.append(primary);
+            try providers.append(allocator, primary);
             
             // Add fallback providers
             if (self.provider_configs.get(primary)) |config| {
@@ -215,14 +215,14 @@ pub const ProviderManager = struct {
                     // Only add fallback if it has the required capability
                     if (self.provider_configs.get(fallback)) |fallback_config| {
                         if (fallback_config.hasCapability(capability)) {
-                            try providers.append(fallback);
+                            try providers.append(allocator, fallback);
                         }
                     }
                 }
             }
         }
         
-        return providers.toOwnedSlice();
+        return providers.toOwnedSlice(allocator);
     }
     
     pub fn getOrCreateClient(self: *Self, provider: api.ApiProvider) !*api.ApiClient {
@@ -308,7 +308,7 @@ pub const ProviderManager = struct {
     }
     
     pub fn listHealthyProviders(self: *Self, capability: ProviderCapability, allocator: std.mem.Allocator) ![]api.ApiProvider {
-        var healthy_providers = std.ArrayList(api.ApiProvider).init(allocator);
+        var healthy_providers = std.ArrayList(api.ApiProvider){};
         
         var config_iter = self.provider_configs.iterator();
         while (config_iter.next()) |entry| {
@@ -321,14 +321,14 @@ pub const ProviderManager = struct {
             // Check health
             if (self.provider_health.get(provider)) |health| {
                 if (health.is_healthy) {
-                    try healthy_providers.append(provider);
+                    try healthy_providers.append(allocator, provider);
                 }
             } else {
                 // If no health data, assume healthy for now
-                try healthy_providers.append(provider);
+                try healthy_providers.append(allocator, provider);
             }
         }
         
-        return healthy_providers.toOwnedSlice();
+        return healthy_providers.toOwnedSlice(allocator);
     }
 };

@@ -24,7 +24,7 @@ pub const TokenStorage = struct {
             std.log.warn("Failed to get HOME directory: {}", .{err});
             return Self{
                 .allocator = allocator,
-                .tokens = std.ArrayList(TokenEntry).init(allocator),
+                .tokens = std.ArrayList(TokenEntry){},
                 .storage_path = allocator.dupe(u8, "/tmp/.zeke_tokens") catch "",
             };
         };
@@ -34,7 +34,7 @@ pub const TokenStorage = struct {
             allocator.free(home_dir);
             return Self{
                 .allocator = allocator,
-                .tokens = std.ArrayList(TokenEntry).init(allocator),
+                .tokens = std.ArrayList(TokenEntry){},
                 .storage_path = allocator.dupe(u8, "/tmp/.zeke_tokens") catch "",
             };
         };
@@ -42,7 +42,7 @@ pub const TokenStorage = struct {
         
         var self = Self{
             .allocator = allocator,
-            .tokens = std.ArrayList(TokenEntry).init(allocator),
+            .tokens = std.ArrayList(TokenEntry){},
             .storage_path = storage_path,
         };
         
@@ -61,7 +61,7 @@ pub const TokenStorage = struct {
         for (self.tokens.items) |entry| {
             self.allocator.free(entry.token);
         }
-        self.tokens.deinit();
+        self.tokens.deinit(self.allocator);
         self.allocator.free(self.storage_path);
     }
     
@@ -70,7 +70,7 @@ pub const TokenStorage = struct {
         self.removeToken(provider);
         
         const encoded_token = try self.encodeToken(token);
-        try self.tokens.append(TokenEntry{
+        try self.tokens.append(self.allocator, TokenEntry{
             .provider = provider,
             .token = encoded_token,
         });
@@ -125,12 +125,12 @@ pub const TokenStorage = struct {
         defer file.close();
         
         // Create JSON object with tokens
-        var json_tokens = std.ArrayList(u8).init(self.allocator);
-        defer json_tokens.deinit();
+        var json_tokens = std.ArrayList(u8){};
+        defer json_tokens.deinit(self.allocator);
         
-        try json_tokens.appendSlice("{\n");
+        try json_tokens.appendSlice(self.allocator, "{\n");
         for (self.tokens.items, 0..) |entry, i| {
-            if (i > 0) try json_tokens.appendSlice(",\n");
+            if (i > 0) try json_tokens.appendSlice(self.allocator, ",\n");
             
             const provider_str = switch (entry.provider) {
                 .github => "github",
@@ -139,9 +139,11 @@ pub const TokenStorage = struct {
                 .local => "local",
             };
             
-            try json_tokens.writer().print("  \"{s}\": \"{s}\"", .{ provider_str, entry.token });
+            const entry_json = try std.fmt.allocPrint(self.allocator, "  \"{s}\": \"{s}\"", .{ provider_str, entry.token });
+            defer self.allocator.free(entry_json);
+            try json_tokens.appendSlice(self.allocator, entry_json);
         }
-        try json_tokens.appendSlice("\n}\n");
+        try json_tokens.appendSlice(self.allocator, "\n}\n");
         
         try file.writeAll(json_tokens.items);
     }
@@ -154,7 +156,9 @@ pub const TokenStorage = struct {
         };
         defer file.close();
         
-        const file_contents = try file.readToEndAlloc(self.allocator, 1024 * 1024);
+        const file_size = try file.getEndPos();
+        const file_contents = try self.allocator.alloc(u8, file_size);
+        _ = try file.readAll(file_contents);
         defer self.allocator.free(file_contents);
         
         const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, file_contents, .{}) catch |err| {
@@ -175,7 +179,7 @@ pub const TokenStorage = struct {
         for (providers) |provider_info| {
             if (root.get(provider_info.name)) |token_value| {
                 const token = try self.allocator.dupe(u8, token_value.string);
-                try self.tokens.append(TokenEntry{
+                try self.tokens.append(self.allocator, TokenEntry{
                     .provider = provider_info.provider,
                     .token = token,
                 });
