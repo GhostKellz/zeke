@@ -23,7 +23,7 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 
 ## ✨ Features
 
-* ⚡ **Zig v0.15, Async-First:** Written entirely in Zig for pure speed and memory safety
+* ⚡ **Zig v0.16, Async-First:** Written entirely in Zig for pure speed and memory safety
 * 🔥 **zsync Runtime:** True non-blocking async calls and parallel AI requests
 * 🤖 **Multi-Backend:** Seamlessly use Copilot, ChatGPT, Claude, local LLMs
 * 📝 **Chat + Actions:** Panel chat, inline, batch code actions, `/explain` & `/test` commands
