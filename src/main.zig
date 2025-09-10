@@ -206,8 +206,7 @@ fn zekeMain(_: anytype) !void {
             std.debug.print("Usage: zeke smart analyze <file> [type] | zeke smart explain <code> [language]\n", .{});
         }
     } else if (std.mem.eql(u8, command, "tui")) {
-        std.debug.print("🚧 TUI mode temporarily disabled while fixing dependencies\n", .{});
-        std.debug.print("💡 Use the command-line interface for now!\n", .{});
+        try handleTui(&zeke_instance, allocator);
     } else if (std.mem.eql(u8, command, "nvim")) {
         if (args.len > 2) {
             try handleNvimCommand(&zeke_instance, allocator, args[2..]);
@@ -846,7 +845,7 @@ fn handleSmartExplain(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, c
 }
 
 fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
-    var tui_app = zeke.tui.TuiApp.init(allocator, zeke_instance) catch |err| {
+    var tui_app = zeke.tui.TuiApp.init(allocator, @ptrCast(zeke_instance)) catch |err| {
         std.log.err("Failed to initialize TUI: {}", .{err});
         return;
     };

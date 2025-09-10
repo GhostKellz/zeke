@@ -95,19 +95,29 @@ pub const ApiClient = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        if (self.http_client) |client| {
-            client.deinit();
-            self.allocator.destroy(client);
-        }
-        if (self.runtime) |_| {
-            // Runtime cleanup placeholder
-        }
+        // Clean up auth token first
         if (self.auth_token) |token| {
             self.allocator.free(token);
         }
+        
+        // Clean up rate limiter
         if (self.rate_limiter) |limiter| {
+            // Safely deinit the rate limiter
             limiter.deinit();
             self.allocator.destroy(limiter);
+        }
+        
+        // Clean up HTTP client with better error handling
+        if (self.http_client) |client| {
+            // Give any active requests time to complete
+            std.Thread.sleep(10 * std.time.ns_per_ms);
+            
+            client.deinit();
+            self.allocator.destroy(client);
+        }
+        
+        if (self.runtime) |_| {
+            // Runtime cleanup placeholder
         }
     }
 

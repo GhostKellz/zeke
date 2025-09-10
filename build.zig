@@ -43,6 +43,18 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const shroud = b.dependency("shroud", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const ghostllm = b.dependency("ghostllm", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zhttp = b.dependency("zhttp", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
@@ -68,6 +80,9 @@ pub fn build(b: *std.Build) void {
             .{ .name = "flash", .module = flash.module("flash") },
             .{ .name = "zcrypto", .module = zcrypto.module("zcrypto") },
             .{ .name = "phantom", .module = phantom.module("phantom") },
+            .{ .name = "shroud", .module = shroud.module("shroud") },
+            .{ .name = "ghostllm", .module = ghostllm.module("ghostllm") },
+            .{ .name = "zhttp", .module = zhttp.module("zhttp") },
         },
     });
 
@@ -114,9 +129,15 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "flash", .module = flash.module("flash") },
                 .{ .name = "zcrypto", .module = zcrypto.module("zcrypto") },
                 .{ .name = "phantom", .module = phantom.module("phantom") },
+                .{ .name = "shroud", .module = shroud.module("shroud") },
+                .{ .name = "ghostllm", .module = ghostllm.module("ghostllm") },
+                .{ .name = "zhttp", .module = zhttp.module("zhttp") },
             },
         }),
     });
+    
+    // Link libc for phantom terminal functionality
+    exe.linkLibC();
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default

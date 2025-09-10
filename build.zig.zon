@@ -38,11 +38,11 @@
         },
         .zqlite = .{
             .url = "https://github.com/ghostkellz/zqlite/archive/refs/heads/main.tar.gz",
-            .hash = "zqlite-1.2.5-0Cdu4tJ8DgBa7wQAf6Oe7-6XEYcX7BeVpVKoW8PdUfAe",
+            .hash = "zqlite-1.3.0-0Cdu4hm1EABOG28HLgV9cE5yFpOGTL_Hhx2Jfjwl-nW9",
         },
         .flash = .{
             .url = "https://github.com/ghostkellz/flash/archive/refs/heads/main.tar.gz",
-            .hash = "flash-0.2.2-dnj73xCHAwA_GGpT2U-3g0qnPCrm-wt26hWUIuMaQHX3",
+            .hash = "flash-0.2.3-dnj73y7JAwAJp4bFNvr4zXOw8BfFCYbe27eOZx1f2zkT",
         },
         .zcrypto = .{
             .url = "https://github.com/ghostkellz/zcrypto/archive/refs/heads/main.tar.gz",
@@ -50,7 +50,7 @@
         },
         .phantom = .{
             .url = "https://github.com/ghostkellz/phantom/archive/refs/heads/main.tar.gz",
-            .hash = "phantom-0.3.2-E0eWBCFICAC20J1jhO0hBUKysjQ9Gs2W2nCQw9NP6wfi",
+            .hash = "phantom-0.3.9-E0eWBCqBCAARCmaurO_JnSSkJZkEhvpvkE5-DERWHTQC",
         },
         .shroud = .{
             .url = "https://github.com/ghostkellz/shroud/archive/refs/heads/main.tar.gz",
@@ -59,6 +59,10 @@
         .ghostllm = .{
             .url = "https://github.com/ghostkellz/ghostllm/archive/refs/heads/main.tar.gz",
             .hash = "ghostllm-0.3.3-aZaFVhVPBABZ_HSBBSUPw8hsC7qlOhtJ3CnEBBVJrkj2",
+        },
+        .zhttp = .{
+            .url = "https://github.com/ghostkellz/zhttp/archive/refs/heads/main.tar.gz",
+            .hash = "zhttp-0.1.1-jZpECBolAgDkhcQZC7IlSWgh4DLJobRigyCpblwNqJ4E",
         },
     },
     .paths = .{
