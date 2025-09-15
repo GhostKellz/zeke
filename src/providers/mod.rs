@@ -8,6 +8,29 @@ use tracing::{debug, warn};
 
 use crate::error::{ZekeError, ZekeResult};
 
+// Helper types for library integration
+#[derive(Debug, Clone)]
+pub struct ApiResponse {
+    pub content: String,
+    pub provider: String,
+    pub model: String,
+    pub usage: Option<ApiUsage>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApiUsage {
+    pub total_tokens: u32,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApiProviderInfo {
+    pub name: String,
+    pub status: String,
+    pub models: Vec<String>,
+}
+
 pub mod openai;
 pub mod claude;
 pub mod copilot;
@@ -444,5 +467,66 @@ impl ProviderManager {
     pub async fn get_provider_status(&self) -> Vec<(Provider, ProviderHealth)> {
         let health = self.health.read().await;
         health.iter().map(|(p, h)| (*p, h.clone())).collect()
+    }
+
+    /// Simple ask method for direct provider interaction
+    pub async fn ask(&self, provider: &str, question: &str, model: Option<&str>) -> ZekeResult<ApiResponse> {
+        let provider_enum: Provider = provider.parse()?;
+
+        let request = ChatRequest {
+            messages: vec![ChatMessage {
+                role: "user".to_string(),
+                content: question.to_string(),
+            }],
+            model: model.map(|s| s.to_string()),
+            temperature: Some(0.7),
+            max_tokens: Some(2000),
+            stream: Some(false),
+        };
+
+        let response = if let Some(client) = self.get_provider_client_ref(provider_enum).await {
+            client.chat_completion(&request).await?
+        } else {
+            return Err(ZekeError::provider(format!("Provider '{}' not available", provider)));
+        };
+
+        Ok(ApiResponse {
+            content: response.content,
+            provider: response.provider.to_string(),
+            model: response.model,
+            usage: response.usage.map(|u| ApiUsage {
+                total_tokens: u.total_tokens,
+                prompt_tokens: u.prompt_tokens,
+                completion_tokens: u.completion_tokens,
+            }),
+        })
+    }
+
+    /// List provider information for external use
+    pub async fn list_provider_info(&self) -> ZekeResult<Vec<ApiProviderInfo>> {
+        let providers = self.providers.read().await;
+        let health = self.health.read().await;
+
+        let mut provider_infos = Vec::new();
+
+        for (provider, _client) in providers.iter() {
+            let status = if let Some(provider_health) = health.get(provider) {
+                if provider_health.is_healthy {
+                    "healthy".to_string()
+                } else {
+                    "unhealthy".to_string()
+                }
+            } else {
+                "unknown".to_string()
+            };
+
+            provider_infos.push(ApiProviderInfo {
+                name: provider.to_string(),
+                status,
+                models: vec![], // TODO: Implement model listing per provider
+            });
+        }
+
+        Ok(provider_infos)
     }
 }

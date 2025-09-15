@@ -2,7 +2,7 @@
 name = "zeke"
 version = "0.3.0"
 edition = "2024"
-description = "The next-gen AI dev companion - multi-provider CLI and Neovim plugin"
+description = "The next-gen AI dev companion"
 authors = ["GhostKellz"]
 license = "MIT"
 

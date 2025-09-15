@@ -33,6 +33,48 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 
 ---
 
+## 📚 Library Usage (For GhostFlow Integration)
+
+Zeke can be used as a library for integration into other Rust projects:
+
+```toml
+# Cargo.toml
+[dependencies]
+zeke = { git = "https://github.com/ghostkellz/zeke", features = ["git"] }
+```
+
+```rust
+use zeke::{ZekeApi, ZekeResult};
+
+#[tokio::main]
+async fn main() -> ZekeResult<()> {
+    // Initialize the API
+    let api = ZekeApi::new().await?;
+
+    // Ask a coding question
+    let response = api.ask("claude", "Explain this Rust function", None).await?;
+    println!("AI Response: {}", response.content);
+
+    // List available providers
+    let providers = api.list_providers().await?;
+    for provider in providers {
+        println!("Provider: {} ({})", provider.name, provider.status);
+    }
+
+    // Git operations (when git feature is enabled)
+    #[cfg(feature = "git")]
+    {
+        let git = api.git()?;
+        let status = git.status().await?;
+        println!("Git branch: {}", status.branch);
+    }
+
+    Ok(())
+}
+```
+
+---
+
 ## 📦 Quick Start
 
 > **Requirements:**
