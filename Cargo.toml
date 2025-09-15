@@ -1,0 +1,75 @@
+[package]
+name = "zeke"
+version = "0.3.0"
+edition = "2024"
+description = "The next-gen AI dev companion - multi-provider CLI and Neovim plugin"
+authors = ["GhostKellz"]
+license = "MIT"
+
+[dependencies]
+# Async runtime and HTTP client
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# CLI and config
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Logging and error handling
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+thiserror = "1.0"
+
+# MessagePack for Neovim RPC
+rmp-serde = "1.1"
+
+# Git operations
+git2 = { version = "0.18", optional = true }
+
+# Crypto and auth
+sha2 = "0.10"
+base64 = "0.21"
+url = "2.0"
+
+# Terminal UI
+crossterm = "0.27"
+ratatui = "0.24"
+
+# Streaming and async utilities
+futures = "0.3"
+async-stream = "0.3"
+async-trait = "0.1"
+
+# Configuration
+dirs = "5.0"
+
+# Web server for API
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+hyper = "1.0"
+
+# MessagePack RPC for Neovim
+rmpv = "1.0"
+
+# Additional utilities
+uuid = { version = "1.0", features = ["v4"] }
+
+[features]
+default = ["agents", "git"]
+agents = []
+git = ["git2"]
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[lib]
+name = "zeke"
+path = "src/lib.rs"
+
+[[bin]]
+name = "zeke"
+path = "src/main.rs"

@@ -1,14 +1,5 @@
-# Zig build artifacts
-/zig-cache/
-/zig-out/
-*.o
-*.exe
-
 # Rust build artifacts
 /target/
-/bindings/rust/target/
-/bindings/rust/zeke/target/
-/bindings/rust/zeke-sys/target/
 **/*.rs.bk
 *.pdb
 
@@ -16,12 +7,11 @@
 # Cargo.lock
 
 # Generated files
-/bindings/rust/zeke-sys/src/bindings.rs
-/bindings/rust/*/build.rs.out
+*.orig
 
 # Documentation builds
 /doc/
-/bindings/rust/*/doc/
+target/doc/
 
 # IDE files
 .vscode/
@@ -53,16 +43,26 @@ Thumbs.db
 /coverage/
 *.profraw
 
-# FFI build artifacts
+# Library artifacts
 *.a
 *.so
 *.dylib
 *.dll
-libzeke_ffi.*
+*.lib
 
-# Bindgen artifacts
-wrapper.h
-bindings.h
+# Debug artifacts
+*.dSYM/
+*.pdb
 
 # Package manager
 node_modules/
+
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Rust workspace
+Cargo.lock
+!Cargo.lock
