@@ -32,6 +32,9 @@ pub mod streaming;
 pub mod config;
 pub mod error;
 pub mod api;
+pub mod tools;
+pub mod auth;
+pub mod mcp;
 
 // Optional modules
 #[cfg(feature = "agents")]
@@ -45,6 +48,9 @@ pub use error::{ZekeError, ZekeResult};
 pub use config::ZekeConfig;
 pub use providers::{Provider, ProviderManager, ChatRequest, ChatResponse};
 pub use api::{ApiServer, start_api_server};
+pub use tools::{ToolRegistry, ToolInput, ToolOutput};
+pub use auth::{AuthToken, AuthProvider};
+pub use mcp::{McpManager, McpServer, McpTool, McpResource};
 
 /// The current version of ZEKE
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

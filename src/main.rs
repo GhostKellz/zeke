@@ -10,6 +10,9 @@ mod streaming;
 mod git;
 mod config;
 mod error;
+mod auth;
+mod tools;
+mod mcp;
 
 use cli::{Args, Commands};
 use error::ZekeResult;

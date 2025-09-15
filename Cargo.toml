@@ -58,6 +58,17 @@ rmpv = "1.0"
 # Additional utilities
 uuid = { version = "1.0", features = ["v4"] }
 
+# File operations and text processing
+globset = "0.4"
+regex = "1.0"
+walkdir = "2.0"
+encoding_rs = "0.8"
+
+# OAuth2 and JWT for GitHub authentication
+oauth2 = "4.4"
+jsonwebtoken = "9.0"
+chrono = { version = "0.4", features = ["serde"] }
+
 [features]
 default = ["agents", "git"]
 agents = []

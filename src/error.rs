@@ -65,4 +65,8 @@ impl ZekeError {
     pub fn command_failed<T: Into<String>>(msg: T) -> Self {
         ZekeError::CommandFailed(msg.into())
     }
+
+    pub fn io<T: Into<String>>(msg: T) -> Self {
+        ZekeError::Io(std::io::Error::new(std::io::ErrorKind::Other, msg.into()))
+    }
 }

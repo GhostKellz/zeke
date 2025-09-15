@@ -74,6 +74,7 @@ impl StreamManager {
             Provider::GhostLLM => "This is a simulated GhostLLM streaming response demonstrating high-performance GPU inference capabilities.",
             Provider::Ollama => "This is a simulated Ollama streaming response from your local model running on this machine.",
             Provider::Copilot => "This is a simulated GitHub Copilot streaming response for code completion and assistance.",
+            Provider::DeepSeek => "This is a simulated DeepSeek streaming response demonstrating advanced reasoning and code generation capabilities.",
         };
 
         Ok(ChatResponse {

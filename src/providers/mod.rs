@@ -13,6 +13,7 @@ pub mod claude;
 pub mod copilot;
 pub mod ghostllm;
 pub mod ollama;
+pub mod deepseek;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Provider {
@@ -21,6 +22,7 @@ pub enum Provider {
     Copilot,
     GhostLLM,
     Ollama,
+    DeepSeek,
 }
 
 impl std::fmt::Display for Provider {
@@ -31,6 +33,7 @@ impl std::fmt::Display for Provider {
             Provider::Copilot => write!(f, "copilot"),
             Provider::GhostLLM => write!(f, "ghostllm"),
             Provider::Ollama => write!(f, "ollama"),
+            Provider::DeepSeek => write!(f, "deepseek"),
         }
     }
 }
@@ -45,6 +48,7 @@ impl std::str::FromStr for Provider {
             "copilot" => Ok(Provider::Copilot),
             "ghostllm" => Ok(Provider::GhostLLM),
             "ollama" => Ok(Provider::Ollama),
+            "deepseek" => Ok(Provider::DeepSeek),
             _ => Err(ZekeError::invalid_input(format!("Unknown provider: {}", s))),
         }
     }
@@ -183,6 +187,11 @@ impl ProviderManager {
             self.register_provider(Arc::new(client)).await?;
         }
 
+        // Try to initialize DeepSeek
+        if let Ok(client) = deepseek::DeepSeekClient::new() {
+            self.register_provider(Arc::new(client)).await?;
+        }
+
         // GitHub Copilot would require more complex OAuth setup, skip for now
 
         Ok(())
@@ -268,6 +277,22 @@ impl ProviderManager {
             max_requests_per_minute: 1000, // Local, no real limit
             timeout: Duration::from_secs(60), // Local inference can be slow
             fallback_providers: vec![],
+        });
+
+        // DeepSeek configuration
+        configs.insert(Provider::DeepSeek, ProviderConfig {
+            provider: Provider::DeepSeek,
+            priority: 6,
+            capabilities: vec![
+                Capability::ChatCompletion,
+                Capability::CodeCompletion,
+                Capability::CodeExplanation,
+                Capability::CodeRefactoring,
+                Capability::TestGeneration,
+            ],
+            max_requests_per_minute: 60,
+            timeout: Duration::from_secs(30),
+            fallback_providers: vec![Provider::OpenAI, Provider::Claude],
         });
 
         configs
