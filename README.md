@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/zeke-logo.png" alt="Zeke Logo" width="128" height="128" />
+</div>
+
 # ⚡ ZEKE - The Rust-Native AI Dev Companion
 
 ---
