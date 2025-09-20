@@ -27,7 +27,17 @@ impl GhostLLMClient {
         })
     }
 
-    pub fn with_config(base_url: String, api_key: Option<String>) -> Self {
+    pub fn with_config(base_url: &str) -> ZekeResult<Self> {
+        let api_key = env::var("GHOSTLLM_API_KEY").ok();
+
+        Ok(Self {
+            client: Client::new(),
+            base_url: base_url.to_string(),
+            api_key,
+        })
+    }
+
+    pub fn with_full_config(base_url: String, api_key: Option<String>) -> Self {
         Self {
             client: Client::new(),
             base_url,

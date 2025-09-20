@@ -43,6 +43,9 @@ pub enum ZekeError {
 
     #[error("Command failed: {0}")]
     CommandFailed(String),
+
+    #[error("System time error: {0}")]
+    SystemTime(String),
 }
 
 impl ZekeError {
@@ -68,5 +71,17 @@ impl ZekeError {
 
     pub fn io<T: Into<String>>(msg: T) -> Self {
         ZekeError::Io(std::io::Error::new(std::io::ErrorKind::Other, msg.into()))
+    }
+}
+
+impl From<std::time::SystemTimeError> for ZekeError {
+    fn from(err: std::time::SystemTimeError) -> Self {
+        ZekeError::SystemTime(err.to_string())
+    }
+}
+
+impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ZekeError {
+    fn from(err: tokio::sync::mpsc::error::SendError<T>) -> Self {
+        ZekeError::provider(format!("Channel send error: {}", err))
     }
 }

@@ -66,3 +66,6 @@ node_modules/
 # Rust workspace
 Cargo.lock
 !Cargo.lock
+
+# Repos for reference
+/archive

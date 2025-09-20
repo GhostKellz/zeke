@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+pub use commands::router::RouterAction;
+
 pub mod commands;
 pub mod tui;
 
@@ -34,6 +36,12 @@ pub enum Commands {
     Provider {
         #[command(subcommand)]
         action: ProviderAction,
+    },
+
+    /// Manage provider routing
+    Router {
+        #[command(subcommand)]
+        action: RouterAction,
     },
 
     /// Start API server for external integrations

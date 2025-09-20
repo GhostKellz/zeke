@@ -13,6 +13,7 @@ mod error;
 mod auth;
 mod tools;
 mod mcp;
+mod actions;
 
 use cli::{Args, Commands};
 use error::ZekeResult;
@@ -45,6 +46,9 @@ async fn run(args: Args) -> ZekeResult<()> {
         }
         Commands::Provider { action } => {
             cli::commands::provider::handle_provider(action).await
+        }
+        Commands::Router { action } => {
+            cli::commands::router::handle_router(action).await
         }
         Commands::Server { host, port } => {
             api::start_api_server(&host, port).await

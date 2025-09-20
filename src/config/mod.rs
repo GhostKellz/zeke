@@ -8,6 +8,7 @@ pub struct ZekeConfig {
     pub default_provider: Option<String>,
     pub providers: HashMap<String, ProviderConfig>,
     pub auth: AuthConfig,
+    pub router: Option<crate::providers::router::ProviderRouterConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,7 +52,7 @@ impl ConfigManager {
     pub async fn load_config(&self) -> ZekeResult<ZekeConfig> {
         // TODO: Load from config file
         Ok(ZekeConfig {
-            default_provider: Some("ghostllm".to_string()),
+            default_provider: Some("auto".to_string()),
             providers: HashMap::new(),
             auth: AuthConfig {
                 google_oauth: None,
@@ -64,6 +65,7 @@ impl ConfigManager {
                     api_key: std::env::var("GHOSTLLM_API_KEY").ok(),
                 }),
             },
+            router: Some(crate::providers::router::ProviderRouterConfig::default()),
         })
     }
 

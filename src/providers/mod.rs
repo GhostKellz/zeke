@@ -37,6 +37,7 @@ pub mod copilot;
 pub mod ghostllm;
 pub mod ollama;
 pub mod deepseek;
+pub mod router;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Provider {

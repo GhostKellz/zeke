@@ -57,6 +57,7 @@ rmpv = "1.0"
 
 # Additional utilities
 uuid = { version = "1.0", features = ["v4"] }
+tokio-tungstenite = "0.24"
 
 # File operations and text processing
 globset = "0.4"
