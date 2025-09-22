@@ -1,0 +1,1 @@
+Pin<Box<(dyn futures::Stream<Item = std::result::Result<response::StreamChunk, error::Error>> + std::marker::Send + 'static)>>

@@ -1,17 +1,11 @@
-# Rust build artifacts
-/target/
-**/*.rs.bk
-*.pdb
+# Zig build artifacts
+/zig-out/
+/zig-cache/
+.zig-cache/
 
-# Cargo lock files (uncomment if you want to commit them)
-# Cargo.lock
-
-# Generated files
+# Zig generated files
 *.orig
-
-# Documentation builds
-/doc/
-target/doc/
+*.tmp
 
 # IDE files
 .vscode/
@@ -57,15 +51,11 @@ Thumbs.db
 # Package manager
 node_modules/
 
-
 # Database files
 *.db
 *.db-shm
 *.db-wal
 
-# Rust workspace
-Cargo.lock
-!Cargo.lock
-
 # Repos for reference
 /archive
+CLAUDE.md

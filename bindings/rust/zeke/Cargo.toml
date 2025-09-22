@@ -1,0 +1,45 @@
+[package]
+name = "zeke"
+version = "0.2.0"
+edition = "2024"
+authors = ["Zeke Team <hello@ghostkellz.dev>"]
+description = "Safe, high-level Rust bindings for Zeke AI development companion"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ghostkellz/zeke"
+documentation = "https://docs.rs/zeke"
+readme = "README.md"
+keywords = ["ai", "llm", "gpt", "claude", "openai"]
+categories = ["api-bindings", "development-tools", "web-programming"]
+
+[lib]
+name = "zeke"
+
+[dependencies]
+zeke-sys = { path = "../zeke-sys", version = "0.2.0" }
+tokio = { version = "1.0", features = ["full"], optional = true }
+futures = { version = "0.3", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+toml = "0.8"
+tracing = "0.1"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+url = "2.0"
+secrecy = "0.8"
+zeroize = "1.7"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+env_logger = "0.10"
+
+[features]
+default = ["async", "ghostllm"]
+async = ["tokio", "futures"]
+ghostllm = ["zeke-sys/ghostllm"]
+streaming = ["zeke-sys/streaming"]
+serde_support = []
+
+[package.metadata.docs.rs]
+features = ["async", "ghostllm", "streaming", "serde_support"]
+rustdoc-args = ["--cfg", "docsrs"]

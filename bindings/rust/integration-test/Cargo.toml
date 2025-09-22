@@ -1,0 +1,7 @@
+[package]
+name = "zeke-integration-test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zeke-sys = { path = "../zeke-sys" }

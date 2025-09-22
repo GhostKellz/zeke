@@ -2,13 +2,23 @@
   <img src="assets/zeke-logo.png" alt="Zeke Logo" width="128" height="128" />
 </div>
 
-# ⚡ ZEKE - The Rust-Native AI Dev Companion
+# ⚡ ZEKE v0.2.8 - The Zig-Native AI Dev Companion
+
+<div align="center">
+
+![Built with Zig](https://img.shields.io/badge/Built%20with-Zig-F7A41D?style=for-the-badge&logo=zig&logoColor=white)
+![Zig Version](https://img.shields.io/badge/Zig-0.16.0--dev-orange?style=for-the-badge)
+![Multi-Provider AI](https://img.shields.io/badge/Multi--Provider-AI-blue?style=for-the-badge&logo=openai&logoColor=white)
+![Async Runtime](https://img.shields.io/badge/Async-Runtime-green?style=for-the-badge&logo=lightning&logoColor=white)
+![Version](https://img.shields.io/badge/Version-0.2.8-brightgreen?style=for-the-badge)
+
+</div>
 
 ---
 
-### The Next-Gen AI Copilot for Neovim and CLI
+### The Next-Gen AI Copilot for CLI & Development Workflows
 
-ZEKE brings lightning-fast, native Rust performance to AI-powered coding workflows, integrating:
+ZEKE brings lightning-fast, native Zig performance to AI-powered coding workflows, integrating:
 
 * **GitHub Copilot** (chat, inline, code actions)
 * **OpenAI** (GPT-4, GPT-4o, GPT-3.5)
@@ -27,8 +37,8 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 
 ## ✨ Features
 
-* ⚡ **Rust 2024 Edition, Async-First:** Written entirely in Rust for pure speed and memory safety
-* 🔥 **Tokio Runtime:** True non-blocking async calls and parallel AI requests
+* ⚡ **Zig v0.16, Async-First:** Written entirely in Zig for pure speed and memory safety
+* 🔥 **zsync Runtime:** True non-blocking async calls and parallel AI requests
 * 🤖 **Multi-Backend:** Seamlessly use Copilot, ChatGPT, Claude, local LLMs
 * 📝 **Chat + Actions:** Panel chat, inline, batch code actions, `/explain` & `/test` commands
 * 🔑 **Auth:** Sign in with GitHub (Copilot), Google (Claude), OpenAI keys—configurable
@@ -37,60 +47,26 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 
 ---
 
-## 📚 Library Usage (For GhostFlow Integration)
-
-Zeke can be used as a library for integration into other Rust projects:
-
-```toml
-# Cargo.toml
-[dependencies]
-zeke = { git = "https://github.com/ghostkellz/zeke", features = ["git"] }
-```
-
-```rust
-use zeke::{ZekeApi, ZekeResult};
-
-#[tokio::main]
-async fn main() -> ZekeResult<()> {
-    // Initialize the API
-    let api = ZekeApi::new().await?;
-
-    // Ask a coding question
-    let response = api.ask("claude", "Explain this Rust function", None).await?;
-    println!("AI Response: {}", response.content);
-
-    // List available providers
-    let providers = api.list_providers().await?;
-    for provider in providers {
-        println!("Provider: {} ({})", provider.name, provider.status);
-    }
-
-    // Git operations (when git feature is enabled)
-    #[cfg(feature = "git")]
-    {
-        let git = api.git()?;
-        let status = git.status().await?;
-        println!("Git branch: {}", status.branch);
-    }
-
-    Ok(())
-}
-```
-
----
 
 ## 📦 Quick Start
 
 > **Requirements:**
 >
-> * Rust 1.70+
+> * Zig v0.16+
 > * Neovim 0.9+
 > * AI provider accounts
 
+**Using Zig package manager:**
+```sh
+zig fetch --save https://github.com/ghostkellz/zeke/archive/refs/heads/main.tar.gz
+zig build -Drelease-fast
+```
+
+**Or build from source:**
 ```sh
 git clone https://github.com/ghostkellz/zeke.git
 cd zeke
-cargo build --release
+zig build -Drelease-fast
 nvim
 # Run :Zeke to launch the AI panel
 ```
@@ -99,7 +75,7 @@ nvim
 
 ```lua
 -- Packer.nvim example
-use { 'ghostkellz/zeke', run = 'cargo build --release' }
+use { 'ghostkellz/zeke', run = 'zig build -Drelease-fast' }
 ```
 
 ---
@@ -161,7 +137,7 @@ Switch between AI providers and models live:
 ## 🤝 Contributing
 
 PRs, issues, ideas, and flames welcome!
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for style and Rust patterns.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for style and Zig patterns.
 
 ---
 
