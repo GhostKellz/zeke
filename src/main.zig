@@ -6,6 +6,7 @@ const formatting = @import("formatting.zig");
 const file_ops = @import("file_ops.zig");
 const cli_streaming = @import("cli_streaming.zig");
 const agent = @import("agent/mod.zig");
+const tools = @import("tools/mod.zig");
 const git_ops = zeke.git;
 const search = zeke.search;
 
@@ -1127,17 +1128,27 @@ fn handleGitCommand(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
 
         std.debug.print("✅ Added file: {s}\n", .{args[1]});
     } else if (std.mem.eql(u8, subcommand, "commit")) {
-        if (args.len < 2) {
-            std.debug.print("Usage: zeke git commit <message>\n", .{});
-            return;
+        // Smart commit - AI-powered by default!
+        if (args.len >= 2) {
+            // Manual commit with user-provided message
+            git_client.commit(args[1]) catch |err| {
+                std.debug.print("❌ Failed to commit: {}\n", .{err});
+                return;
+            };
+            std.debug.print("✅ Committed with message: {s}\n", .{args[1]});
+        } else {
+            // No message - use AI to generate it
+            std.debug.print("🤖 Generating AI-powered commit message...\n", .{});
+
+            var smart_git = tools.SmartGit.init(allocator);
+            defer smart_git.deinit();
+
+            smart_git.smartCommit(null) catch |err| {
+                std.debug.print("❌ Smart commit failed: {}\n", .{err});
+                std.debug.print("💡 Tip: Provide a message with 'zeke git commit \"your message\"'\n", .{});
+                return;
+            };
         }
-
-        git_client.commit(args[1]) catch |err| {
-            std.debug.print("❌ Failed to commit: {}\n", .{err});
-            return;
-        };
-
-        std.debug.print("✅ Committed with message: {s}\n", .{args[1]});
     } else if (std.mem.eql(u8, subcommand, "branch")) {
         const branch = git_client.getCurrentBranch() catch |err| {
             std.debug.print("❌ Failed to get current branch: {}\n", .{err});
@@ -1173,9 +1184,78 @@ fn handleGitCommand(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
         std.debug.print("  Branch: {s}\n", .{git_info.branch});
         std.debug.print("  Commit: {s}\n", .{git_info.commit_hash[0..8]});
         std.debug.print("  Status: {s}\n", .{if (git_info.is_dirty) "🔶 Dirty" else "✅ Clean"});
+    } else if (std.mem.eql(u8, subcommand, "scan") or std.mem.eql(u8, subcommand, "security")) {
+        // AI-powered security scan
+        std.debug.print("🔒 Running security scan...\n", .{});
+
+        var smart_git = tools.SmartGit.init(allocator);
+        defer smart_git.deinit();
+
+        const commit_range = if (args.len > 1) args[1] else null;
+        smart_git.securityScan(commit_range) catch |err| {
+            std.debug.print("❌ Security scan failed: {}\n", .{err});
+            return;
+        };
+    } else if (std.mem.eql(u8, subcommand, "explain")) {
+        // Explain changes in plain English
+        const commit_ref = if (args.len > 1) args[1] else null;
+
+        var smart_git = tools.SmartGit.init(allocator);
+        defer smart_git.deinit();
+
+        smart_git.explainChanges(commit_ref) catch |err| {
+            std.debug.print("❌ Explain failed: {}\n", .{err});
+            return;
+        };
+    } else if (std.mem.eql(u8, subcommand, "changelog")) {
+        // Generate changelog
+        if (args.len < 3) {
+            std.debug.print("Usage: zeke git changelog <from_ref> <to_ref> [output_file]\n", .{});
+            return;
+        }
+
+        const from_ref = args[1];
+        const to_ref = args[2];
+        const output_file = if (args.len > 3) args[3] else null;
+
+        var smart_git = tools.SmartGit.init(allocator);
+        defer smart_git.deinit();
+
+        smart_git.generateChangelog(from_ref, to_ref, output_file) catch |err| {
+            std.debug.print("❌ Changelog generation failed: {}\n", .{err});
+            return;
+        };
+    } else if (std.mem.eql(u8, subcommand, "resolve")) {
+        // AI-assisted conflict resolution
+        if (args.len < 2) {
+            std.debug.print("Usage: zeke git resolve <file_path>\n", .{});
+            return;
+        }
+
+        var smart_git = tools.SmartGit.init(allocator);
+        defer smart_git.deinit();
+
+        smart_git.resolveConflict(args[1]) catch |err| {
+            std.debug.print("❌ Conflict resolution failed: {}\n", .{err});
+            return;
+        };
     } else {
         std.debug.print("Unknown git subcommand: {s}\n", .{subcommand});
-        std.debug.print("Available: status, diff, add, commit, branch, pr, info\n", .{});
+        std.debug.print("\n📋 Available Git Commands:\n", .{});
+        std.debug.print("  Basic:\n", .{});
+        std.debug.print("    status              - Show repository status\n", .{});
+        std.debug.print("    diff [file]         - Show changes\n", .{});
+        std.debug.print("    add <file>          - Stage file\n", .{});
+        std.debug.print("    commit [message]    - Commit (AI-powered if no message)\n", .{});
+        std.debug.print("    branch              - Show current branch\n", .{});
+        std.debug.print("    info                - Show repo info\n", .{});
+        std.debug.print("\n  AI-Powered:\n", .{});
+        std.debug.print("    scan                - Security scan for sensitive files\n", .{});
+        std.debug.print("    explain [ref]       - Explain changes in plain English\n", .{});
+        std.debug.print("    changelog <from> <to> [file] - Generate changelog\n", .{});
+        std.debug.print("    resolve <file>      - AI-assisted conflict resolution\n", .{});
+        std.debug.print("\n  GitHub:\n", .{});
+        std.debug.print("    pr <title> <body> [base] - Create pull request\n", .{});
     }
 }
 

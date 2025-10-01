@@ -130,17 +130,17 @@ pub const GitOps = struct {
     }
     
     pub fn getDiff(self: *Self, file_path: ?[]const u8) ![]const u8 {
-        var argv = std.ArrayList([]const u8){};
-        defer argv.deinit(self.allocator);
-        
-        try argv.appendSlice(self.allocator, &[_][]const u8{"git", "diff"});
-        if (file_path) |path| {
-            try argv.append(self.allocator, path);
-        }
-        
+        // Simplified: use fixed array instead of ArrayList
+        // Use --cached to include staged changes
+        const argv = if (file_path) |path|
+            &[_][]const u8{ "git", "diff", "--cached", path }
+        else
+            &[_][]const u8{ "git", "diff", "--cached" };
+
         const result = std.process.Child.run(.{
             .allocator = self.allocator,
-            .argv = argv.items,
+            .argv = argv,
+            .max_output_bytes = 10 * 1024 * 1024, // 10MB max
         }) catch |err| {
             std.log.err("Failed to get git diff: {}", .{err});
             return error.GitCommandFailed;

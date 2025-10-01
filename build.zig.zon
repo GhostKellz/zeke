@@ -44,11 +44,19 @@
 
         .phantom = .{
             .url = "https://github.com/ghostkellz/phantom/archive/refs/heads/main.tar.gz",
-            .hash = "phantom-0.3.10-E0eWBCuBCACPpNZn4EWJ4tWg7DGToHnvTJ85ehJ4D5ri",
+            .hash = "phantom-0.4.0-E0eWBP5cEQBPR2T7RKXS3Yg25YbimrW3N4zSdVn92Vgh",
         },
         .zsync = .{
             .url = "https://github.com/ghostkellz/zsync/archive/refs/heads/main.tar.gz",
             .hash = "zsync-0.5.4-KAuheZ4THQAlN32uBKm76ezT7dPT6rvj4ll56NiA9z9M",
+        },
+        .zap = .{
+            .url = "https://github.com/ghostkellz/zap/archive/refs/heads/main.tar.gz",
+            .hash = "zap-0.0.0--jHF1naiAQBDEMjBupTcDeFMTdUtV4wvtWu5PnKwk76X",
+        },
+        .grove = .{
+            .url = "https://github.com/ghostkellz/grove/archive/refs/heads/main.tar.gz",
+            .hash = "grove-0.0.0-rGFsN0MDNABGL_w5s6NKnWYwDHMcKtSiFo2bi5oC6lzk",
         },
     },
 

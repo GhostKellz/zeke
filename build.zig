@@ -39,6 +39,14 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const zap = b.dependency("zap", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const grove = b.dependency("grove", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
@@ -63,6 +71,8 @@ pub fn build(b: *std.Build) void {
             .{ .name = "flash", .module = flash.module("flash") },
             .{ .name = "phantom", .module = phantom.module("phantom") },
             .{ .name = "zsync", .module = zsync.module("zsync") },
+            .{ .name = "zap", .module = zap.module("zap") },
+            .{ .name = "grove", .module = grove.module("grove") },
         },
     });
 
@@ -109,6 +119,8 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "flash", .module = flash.module("flash") },
                 .{ .name = "phantom", .module = phantom.module("phantom") },
                 .{ .name = "zsync", .module = zsync.module("zsync") },
+                .{ .name = "zap", .module = zap.module("zap") },
+                .{ .name = "grove", .module = grove.module("grove") },
             },
         }),
     });
