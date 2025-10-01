@@ -28,18 +28,24 @@ pub const SmartGit = struct {
 
     /// Generate a smart commit with AI-generated message
     pub fn smartCommit(self: *SmartGit, files: ?[]const []const u8) !void {
+        std.log.info("SmartCommit: Starting...", .{});
+
         // Stage files if provided
         if (files) |file_list| {
             for (file_list) |file| {
+                std.log.info("SmartCommit: Adding file {s}", .{file});
                 try self.git_ops.addFile(file);
             }
         } else {
             // Stage all changes (add .)
+            std.log.info("SmartCommit: Adding all files", .{});
             try self.git_ops.addFile(".");
         }
 
         // Get the diff
+        std.log.info("SmartCommit: Getting diff...", .{});
         const diff = try self.git_ops.getDiff(null);
+        std.log.info("SmartCommit: Got diff ({d} bytes)", .{diff.len});
         defer self.allocator.free(diff);
 
         if (diff.len == 0) {
