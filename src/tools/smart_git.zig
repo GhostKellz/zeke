@@ -14,9 +14,16 @@ pub const SmartGit = struct {
     git_ops: git_ops.GitOps,
 
     pub fn init(allocator: std.mem.Allocator) SmartGit {
+        var zap_git = integrations.ZapGit.init(allocator);
+
+        // Try to initialize Ollama
+        zap_git.initOllama(null, null) catch |err| {
+            std.log.warn("Failed to initialize Ollama: {}", .{err});
+        };
+
         return .{
             .allocator = allocator,
-            .zap_git = integrations.ZapGit.init(allocator),
+            .zap_git = zap_git,
             .git_ops = git_ops.GitOps.init(allocator),
         };
     }

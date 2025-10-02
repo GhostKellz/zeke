@@ -9,8 +9,7 @@
 //! - Symbol extraction and navigation
 
 const std = @import("std");
-// TODO: Re-enable when grove is fixed
-// const grove = @import("grove");
+const grove = @import("grove");
 
 /// Grove AST integration wrapper
 pub const GroveAST = struct {
@@ -74,13 +73,31 @@ pub const GroveAST = struct {
         const parsed = try self.allocator.create(ParsedFile);
         errdefer self.allocator.destroy(parsed);
 
-        // TODO: Use Grove's parser to create actual AST
-        // For now, create a placeholder structure
+        // Get Grove language
+        const grove_lang = switch (language) {
+            .zig => grove.Languages.zig,
+            .rust => grove.Languages.rust,
+            .json => grove.Languages.json,
+            .ghostlang => grove.Languages.ghostlang,
+            else => return error.UnsupportedLanguage,
+        };
+
+        // Create parser
+        var parser = grove.Parser.init(self.allocator, grove_lang) catch {
+            return error.ParserInitFailed;
+        };
+        errdefer parser.deinit();
+
+        // Parse the source
+        const tree = parser.parse(source) catch {
+            return error.ParseFailed;
+        };
 
         parsed.* = .{
             .source = try self.allocator.dupe(u8, source),
             .language = language,
-            .tree = null, // Will be populated by grove.Parser
+            .tree = tree,
+            .parser = parser,
             .allocator = self.allocator,
         };
 
@@ -235,12 +252,14 @@ pub const GroveAST = struct {
 pub const ParsedFile = struct {
     source: []const u8,
     language: Language,
-    tree: ?*anyopaque, // grove.Tree pointer (opaque for now)
+    tree: *grove.Tree,
+    parser: grove.Parser,
     allocator: std.mem.Allocator,
 
     pub fn deinit(self: *ParsedFile) void {
         self.allocator.free(self.source);
-        // TODO: Free grove.Tree if allocated
+        self.tree.deinit();
+        self.parser.deinit();
     }
 };
 

@@ -15,17 +15,41 @@ const zap = @import("zap");
 pub const ZapGit = struct {
     allocator: std.mem.Allocator,
     ai_enabled: bool,
+    ollama_client: ?zap.ollama.OllamaClient,
 
     pub fn init(allocator: std.mem.Allocator) ZapGit {
         return .{
             .allocator = allocator,
             .ai_enabled = true,
+            .ollama_client = null,
         };
     }
 
     pub fn deinit(self: *ZapGit) void {
         _ = self;
         // Cleanup if needed
+    }
+
+    /// Initialize Ollama client for AI operations
+    pub fn initOllama(self: *ZapGit, host: ?[]const u8, model: ?[]const u8) !void {
+        const config = zap.ollama.OllamaConfig{
+            .host = host orelse "http://localhost:11434",
+            .model = model orelse "deepseek-coder:33b",
+            .timeout_ms = 30000,
+        };
+
+        self.ollama_client = try zap.ollama.OllamaClient.init(self.allocator, config);
+
+        // Test connection
+        if (self.ollama_client) |*client| {
+            const is_available = client.ping() catch false;
+            if (!is_available) {
+                std.log.warn("Ollama not available at {s}, falling back to heuristics", .{config.host});
+                self.ollama_client = null;
+            } else {
+                std.log.info("✅ Ollama connected at {s} using model {s}", .{ config.host, config.model });
+            }
+        }
     }
 
     /// Generate a smart commit message from git diff
@@ -36,14 +60,29 @@ pub const ZapGit = struct {
         diff: []const u8,
         context: ?[]const u8,
     ) ![]const u8 {
-        // TODO: Call Zap's AI commit message generation
-        // For now, provide a basic implementation
-
         if (diff.len == 0) {
             return error.EmptyDiff;
         }
 
-        // Parse the diff to understand changes
+        // Try Ollama first if available
+        if (self.ollama_client) |*client| {
+            const ai_message = client.generateCommitMessage(diff) catch |err| {
+                std.log.warn("Ollama generation failed: {}, falling back to heuristics", .{err});
+                return self.generateCommitMessageHeuristic(diff, context);
+            };
+            return ai_message;
+        }
+
+        // Fallback to heuristics
+        return self.generateCommitMessageHeuristic(diff, context);
+    }
+
+    /// Generate commit message using simple heuristics (fallback)
+    fn generateCommitMessageHeuristic(
+        self: *ZapGit,
+        diff: []const u8,
+        context: ?[]const u8,
+    ) ![]const u8 {
         const change_type = try self.detectChangeType(diff);
         const scope = try self.detectScope(diff);
 

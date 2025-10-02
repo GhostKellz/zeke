@@ -58,6 +58,14 @@
             .url = "https://github.com/ghostkellz/grove/archive/refs/heads/main.tar.gz",
             .hash = "grove-0.0.0-rGFsN0MDNABGL_w5s6NKnWYwDHMcKtSiFo2bi5oC6lzk",
         },
+        .rune = .{
+            .url = "https://github.com/ghostkellz/rune/archive/refs/heads/main.tar.gz",
+            .hash = "rune-0.0.0-MvDOXuS-BACvzNqxZqYb3xuET2nxtzOsDyzQENdWIRzE",
+        },
+        .ghostlang = .{
+            .url = "https://github.com/ghostkellz/ghostlang/archive/refs/heads/main.tar.gz",
+            .hash = "ghostlang-0.0.0-_SzSPdp2AQCgjX9HfR8nZ-Ui1L3_TByHwoD18DU6WdTU",
+        },
     },
 
     .paths = .{
