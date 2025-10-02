@@ -196,6 +196,8 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
         } else {
             std.debug.print("Usage: zeke smart analyze <file> [type] | zeke smart explain <code> [language]\n", .{});
         }
+    } else if (std.mem.eql(u8, command, "watch")) {
+        try zeke.watch.runWatchMode(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "tui")) {
         try handleTui(&zeke_instance, allocator);
     } else if (std.mem.eql(u8, command, "nvim")) {
@@ -1596,6 +1598,10 @@ fn printUsage() !void {
     std.debug.print("\n⚙️ Configuration:\n", .{});
     std.debug.print("  zeke model [name | list]              - Switch/view models\n", .{});
     std.debug.print("  zeke tui                              - Launch TUI interface\n", .{});
+    std.debug.print("\n🔍 Watch Mode (Revolutionary):\n", .{});
+    std.debug.print("  zeke watch                            - Auto-detect issues with Grove\n", .{});
+    std.debug.print("  zeke watch --auto-fix                 - Auto-apply fixes via Ollama\n", .{});
+    std.debug.print("  zeke watch --auto-commit              - Auto-commit when tests pass\n", .{});
     std.debug.print("\n🚀 Providers: claude, openai, copilot, ollama, ghostllm*\n", .{});
     std.debug.print("📝 * ghostllm integration coming soon (Rust-based service)\n", .{});
     std.debug.print("🔍 Analysis: performance, security, style, quality, architecture\n", .{});

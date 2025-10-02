@@ -23,6 +23,8 @@ pub const git = @import("git/mod.zig");
 pub const search = @import("search/mod.zig");
 pub const build = @import("build/mod.zig");
 pub const storage = @import("storage/mod.zig");
+pub const watch = @import("watch.zig");
+pub const integrations = @import("integrations/mod.zig");
 
 pub const ZekeError = error{
     InitializationFailed,

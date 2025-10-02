@@ -140,6 +140,12 @@ pub fn build(b: *std.Build) void {
     // Link libc for phantom terminal functionality
     exe.linkLibC();
 
+    // Add Grove language stubs for unavailable parsers
+    exe.addCSourceFile(.{
+        .file = b.path("src/grove_stubs.c"),
+        .flags = &.{"-std=c99"},
+    });
+
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
     // step). By default the install prefix is `zig-out/` but can be overridden

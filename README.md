@@ -44,6 +44,8 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 * 🔑 **Auth:** Sign in with GitHub (Copilot), Google (Claude), OpenAI keys—configurable
 * 🖥️ **Dev Focus:** Refactor, doc, review, batch ops—no cloud lock-in, all from Nvim & CLI
 * 🔌 **Extensible:** CLI, TUI, and plugin API for automation, batch, and scripting
+* 👁️ **Watch Mode (Revolutionary):** Real-time file watching with Grove AST, AI-powered fix suggestions, and auto-commit
+* 📋 **TODO Tracker:** Intelligent TODO comment detection with priorities, categories, assignees, and issue tracking
 
 ---
 
@@ -116,11 +118,43 @@ Switch between AI providers and models live:
 
 ## ⚡ Example Usage
 
+### Chat & Completion
 * `:Zeke` — Open the chat panel
 * `<leader>ac` — Accept code completion
 * `:Zeke explain` — Ask for code explanation
 * `:Zeke test` — Ask for test cases
 * `/model claude-3.5` — Change AI backend live
+
+### Watch Mode (Revolutionary!)
+```sh
+# Basic watch - monitors files and detects issues
+zeke watch
+
+# Auto-fix mode - applies AI-suggested fixes automatically
+zeke watch --auto-fix
+
+# Auto-commit mode - commits changes when tests pass
+zeke watch --auto-commit
+
+# Combined - full AI development loop
+zeke watch --auto-fix --auto-commit
+```
+
+**What Watch Mode Does:**
+* 📁 Watches files for changes with inotify (Linux) or fs events (macOS)
+* 🌳 Parses code with Grove AST for syntax-aware analysis
+* 🔍 Detects issues: unused variables, TODOs, missing tests, syntax errors
+* 🤖 Generates fix suggestions via local Ollama LLM
+* ✨ Auto-applies fixes when `--auto-fix` is enabled
+* ✅ Runs tests before committing
+* 📝 Auto-commits passing changes with `--auto-commit`
+
+**TODO Detection Features:**
+* Priority levels: `FIXME` (critical), `TODO!!!` (high), `TODO!!` (medium), `TODO!` (low)
+* Categories: Bug Fix, Refactor, Optimization, Documentation, Feature, Security, Test
+* Assignee tracking: `TODO(@username): message`
+* Issue references: `TODO(#123): message`
+* Context extraction with surrounding code
 
 ---
 

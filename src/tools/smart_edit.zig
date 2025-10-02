@@ -3,17 +3,17 @@
 //! AST-based code editing powered by Grove
 
 const std = @import("std");
-const integrations = @import("../integrations/mod.zig");
+const zeke = @import("zeke");
 
 /// Smart code editor using Grove AST
 pub const SmartEdit = struct {
     allocator: std.mem.Allocator,
-    grove: integrations.GroveAST,
+    grove: zeke.integrations.GroveAST,
 
     pub fn init(allocator: std.mem.Allocator) !SmartEdit {
         return .{
             .allocator = allocator,
-            .grove = try integrations.GroveAST.init(allocator),
+            .grove = try zeke.integrations.GroveAST.init(allocator),
         };
     }
 
@@ -25,7 +25,7 @@ pub const SmartEdit = struct {
     pub fn analyzeFile(self: *SmartEdit, file_path: []const u8) !AnalysisResult {
         // Detect language from file extension
         const ext = std.fs.path.extension(file_path);
-        const language = integrations.grove.Language.fromFileExtension(ext) orelse {
+        const language = zeke.integrations.grove.Language.fromFileExtension(ext) orelse {
             std.log.warn("Unknown language for file: {s}", .{file_path});
             return error.UnsupportedLanguage;
         };
@@ -53,11 +53,11 @@ pub const SmartEdit = struct {
     pub fn refactorCode(
         self: *SmartEdit,
         file_path: []const u8,
-        operation: integrations.grove.RefactorOperation,
+        operation: zeke.integrations.grove.RefactorOperation,
     ) !RefactorResult {
         // Parse the file
         const ext = std.fs.path.extension(file_path);
-        const language = integrations.grove.Language.fromFileExtension(ext) orelse
+        const language = zeke.integrations.grove.Language.fromFileExtension(ext) orelse
             return error.UnsupportedLanguage;
 
         var parsed = try self.grove.parseFile(file_path, language);
@@ -76,7 +76,7 @@ pub const SmartEdit = struct {
     pub fn applyEdits(
         self: *SmartEdit,
         file_path: []const u8,
-        edits: []const integrations.grove.Edit,
+        edits: []const zeke.integrations.grove.Edit,
     ) !void {
         // Read the file
         const content = try std.fs.cwd().readFileAlloc(
@@ -115,9 +115,9 @@ pub const SmartEdit = struct {
         file_path: []const u8,
         line: usize,
         column: usize,
-    ) !?integrations.grove.SymbolLocation {
+    ) !?zeke.integrations.grove.SymbolLocation {
         const ext = std.fs.path.extension(file_path);
-        const language = integrations.grove.Language.fromFileExtension(ext) orelse
+        const language = zeke.integrations.grove.Language.fromFileExtension(ext) orelse
             return error.UnsupportedLanguage;
 
         var parsed = try self.grove.parseFile(file_path, language);
@@ -131,9 +131,9 @@ pub const SmartEdit = struct {
         self: *SmartEdit,
         file_path: []const u8,
         symbol_name: []const u8,
-    ) ![]integrations.grove.SymbolLocation {
+    ) ![]zeke.integrations.grove.SymbolLocation {
         const ext = std.fs.path.extension(file_path);
-        const language = integrations.grove.Language.fromFileExtension(ext) orelse
+        const language = zeke.integrations.grove.Language.fromFileExtension(ext) orelse
             return error.UnsupportedLanguage;
 
         var parsed = try self.grove.parseFile(file_path, language);
@@ -146,9 +146,9 @@ pub const SmartEdit = struct {
     pub fn getSyntaxHighlights(
         self: *SmartEdit,
         file_path: []const u8,
-    ) ![]integrations.grove.HighlightRange {
+    ) ![]zeke.integrations.grove.HighlightRange {
         const ext = std.fs.path.extension(file_path);
-        const language = integrations.grove.Language.fromFileExtension(ext) orelse
+        const language = zeke.integrations.grove.Language.fromFileExtension(ext) orelse
             return error.UnsupportedLanguage;
 
         var parsed = try self.grove.parseFile(file_path, language);
@@ -193,10 +193,10 @@ pub const SmartEdit = struct {
 /// Code analysis result
 pub const AnalysisResult = struct {
     file_path: []const u8,
-    language: integrations.grove.Language,
-    symbols: []integrations.grove.Symbol,
-    diagnostics: []integrations.grove.Diagnostic,
-    parsed_file: *integrations.grove.ParsedFile,
+    language: zeke.integrations.grove.Language,
+    symbols: []zeke.integrations.grove.Symbol,
+    diagnostics: []zeke.integrations.grove.Diagnostic,
+    parsed_file: *zeke.integrations.grove.ParsedFile,
 
     pub fn deinit(self: *AnalysisResult, allocator: std.mem.Allocator) void {
         allocator.free(self.file_path);
@@ -253,7 +253,7 @@ pub const AnalysisResult = struct {
 /// Refactoring result
 pub const RefactorResult = struct {
     file_path: []const u8,
-    edits: []integrations.grove.Edit,
+    edits: []zeke.integrations.grove.Edit,
 
     pub fn deinit(self: *RefactorResult, allocator: std.mem.Allocator) void {
         allocator.free(self.file_path);

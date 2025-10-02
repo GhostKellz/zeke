@@ -4,17 +4,16 @@
 
 const std = @import("std");
 const zeke = @import("zeke");
-const integrations = @import("../integrations/mod.zig");
 const git_ops = zeke.git;
 
 /// Smart Git tool using Zap AI
 pub const SmartGit = struct {
     allocator: std.mem.Allocator,
-    zap_git: integrations.ZapGit,
+    zap_git: zeke.integrations.ZapGit,
     git_ops: git_ops.GitOps,
 
     pub fn init(allocator: std.mem.Allocator) SmartGit {
-        var zap_git = integrations.ZapGit.init(allocator);
+        var zap_git = zeke.integrations.ZapGit.init(allocator);
 
         // Try to initialize Ollama
         zap_git.initOllama(null, null) catch |err| {

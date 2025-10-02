@@ -18,20 +18,23 @@ pub const GroveAST = struct {
 
     const ParserPool = struct {
         parsers: std.ArrayList(*anyopaque),
+        allocator: std.mem.Allocator,
         max_size: usize,
 
         fn init(allocator: std.mem.Allocator, max_size: usize) ParserPool {
             return .{
-                .parsers = std.ArrayList(*anyopaque).init(allocator),
+                .parsers = .{},
+                .allocator = allocator,
                 .max_size = max_size,
             };
         }
 
         fn deinit(self: *ParserPool) void {
-            for (self.parsers.items) |parser| {
-                parser.deinit();
-            }
-            self.parsers.deinit();
+            // TODO: Properly type parsers and call deinit
+            // for (self.parsers.items) |parser| {
+            //     parser.deinit();
+            // }
+            self.parsers.deinit(self.allocator);
         }
     };
 
@@ -54,13 +57,24 @@ pub const GroveAST = struct {
         file_path: []const u8,
         language: Language,
     ) !*ParsedFile {
-        const source = try std.fs.cwd().readFileAlloc(
-            self.allocator,
-            file_path,
-            10 * 1024 * 1024, // 10MB max
-        );
+        // Read file with allocator
+        const file = try std.fs.cwd().openFile(file_path, .{});
+        defer file.close();
+
+        const max_bytes = 10 * 1024 * 1024;
+        const stat = try file.stat();
+        const file_size = @min(stat.size, max_bytes);
+
+        const source = try self.allocator.alloc(u8, file_size);
         errdefer self.allocator.free(source);
 
+        const bytes_read = try file.readAll(source);
+        if (bytes_read != file_size) {
+            self.allocator.free(source);
+            return error.UnexpectedEof;
+        }
+
+        // parseSource takes ownership of source, so don't free on error after this point
         return try self.parseSource(source, language);
     }
 
@@ -73,23 +87,32 @@ pub const GroveAST = struct {
         const parsed = try self.allocator.create(ParsedFile);
         errdefer self.allocator.destroy(parsed);
 
-        // Get Grove language
-        const grove_lang = switch (language) {
+        // Get Grove bundled language and convert to Language
+        const bundled = switch (language) {
             .zig => grove.Languages.zig,
-            .rust => grove.Languages.rust,
             .json => grove.Languages.json,
             .ghostlang => grove.Languages.ghostlang,
-            else => return error.UnsupportedLanguage,
+            // These languages are declared but not compiled in Grove
+            .rust, .go, .javascript, .typescript, .python, .c, .cpp, .markdown => return error.UnsupportedLanguage,
+        };
+
+        const grove_lang = bundled.get() catch {
+            return error.LanguageLoadFailed;
         };
 
         // Create parser
-        var parser = grove.Parser.init(self.allocator, grove_lang) catch {
+        var parser = grove.Parser.init(self.allocator) catch {
             return error.ParserInitFailed;
         };
         errdefer parser.deinit();
 
+        // Set language
+        parser.setLanguage(grove_lang) catch {
+            return error.LanguageUnsupported;
+        };
+
         // Parse the source
-        const tree = parser.parse(source) catch {
+        const tree = parser.parseUtf8(null, source) catch {
             return error.ParseFailed;
         };
 
@@ -109,8 +132,8 @@ pub const GroveAST = struct {
         self: *GroveAST,
         parsed: *ParsedFile,
     ) ![]Symbol {
-        var symbols = std.ArrayList(Symbol).init(self.allocator);
-        errdefer symbols.deinit();
+        var symbols: std.ArrayList(Symbol) = .{};
+        errdefer symbols.deinit(self.allocator);
 
         // TODO: Use Grove queries to extract symbols from AST
         // For now, provide basic regex-based extraction as fallback
@@ -134,7 +157,7 @@ pub const GroveAST = struct {
                     const name = std.mem.trim(u8, after[0..name_end], " ");
 
                     if (name.len > 0) {
-                        try symbols.append(.{
+                        try symbols.append(self.allocator, .{
                             .name = try self.allocator.dupe(u8, name),
                             .kind = p.kind,
                             .line = line_no,
@@ -145,7 +168,7 @@ pub const GroveAST = struct {
             }
         }
 
-        return try symbols.toOwnedSlice();
+        return try symbols.toOwnedSlice(self.allocator);
     }
 
     /// Perform AST-based code refactoring
@@ -156,8 +179,8 @@ pub const GroveAST = struct {
     ) ![]Edit {
         _ = parsed;
 
-        var edits = std.ArrayList(Edit).init(self.allocator);
-        errdefer edits.deinit();
+        var edits: std.ArrayList(Edit) = .{};
+        errdefer edits.deinit(self.allocator);
 
         // TODO: Use Grove's AST manipulation to perform refactorings
         // For now, return empty edits
@@ -181,7 +204,7 @@ pub const GroveAST = struct {
             },
         }
 
-        return try edits.toOwnedSlice();
+        return try edits.toOwnedSlice(self.allocator);
     }
 
     /// Find definition of a symbol at a given position
@@ -209,12 +232,12 @@ pub const GroveAST = struct {
         _ = parsed;
         _ = symbol_name;
 
-        var refs = std.ArrayList(SymbolLocation).init(self.allocator);
-        errdefer refs.deinit();
+        var refs: std.ArrayList(SymbolLocation) = .{};
+        errdefer refs.deinit(self.allocator);
 
         // TODO: Use Grove's AST queries to find all references
 
-        return try refs.toOwnedSlice();
+        return try refs.toOwnedSlice(self.allocator);
     }
 
     /// Validate syntax and return diagnostics
@@ -224,12 +247,12 @@ pub const GroveAST = struct {
     ) ![]Diagnostic {
         _ = parsed;
 
-        var diagnostics = std.ArrayList(Diagnostic).init(self.allocator);
-        errdefer diagnostics.deinit();
+        var diagnostics: std.ArrayList(Diagnostic) = .{};
+        errdefer diagnostics.deinit(self.allocator);
 
         // TODO: Use Grove's error reporting
 
-        return try diagnostics.toOwnedSlice();
+        return try diagnostics.toOwnedSlice(self.allocator);
     }
 
     /// Get syntax highlighting ranges
@@ -239,12 +262,12 @@ pub const GroveAST = struct {
     ) ![]HighlightRange {
         _ = parsed;
 
-        var ranges = std.ArrayList(HighlightRange).init(self.allocator);
-        errdefer ranges.deinit();
+        var ranges: std.ArrayList(HighlightRange) = .{};
+        errdefer ranges.deinit(self.allocator);
 
         // TODO: Use Grove's Highlight module
 
-        return try ranges.toOwnedSlice();
+        return try ranges.toOwnedSlice(self.allocator);
     }
 };
 
@@ -252,7 +275,7 @@ pub const GroveAST = struct {
 pub const ParsedFile = struct {
     source: []const u8,
     language: Language,
-    tree: *grove.Tree,
+    tree: grove.Tree,
     parser: grove.Parser,
     allocator: std.mem.Allocator,
 
