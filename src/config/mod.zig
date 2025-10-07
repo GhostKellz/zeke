@@ -26,6 +26,53 @@ pub const ProviderEndpointConfig = struct {
     openai: []const u8 = "https://api.openai.com",
     ollama: []const u8 = "http://localhost:11434",
     ghostllm: []const u8 = "http://localhost:8080",
+    omen: []const u8 = "http://localhost:3000",
+};
+
+/// MCP transport type for Glyph
+pub const McpTransport = union(enum) {
+    stdio: StdioTransport,
+    websocket: WebSocketTransport,
+
+    pub const StdioTransport = struct {
+        command: []const u8,
+        args: []const []const u8 = &.{},
+    };
+
+    pub const WebSocketTransport = struct {
+        url: []const u8,
+    };
+};
+
+/// Service configuration for external tools and services
+pub const ServiceConfig = struct {
+    /// Glyph MCP server configuration
+    glyph: ?GlyphConfig = null,
+    /// OMEN cloud routing configuration
+    omen: ?OmenConfig = null,
+
+    pub const GlyphConfig = struct {
+        enabled: bool = true,
+        mcp: McpTransport,
+        health_check_interval_s: u32 = 30,
+        timeout_ms: u32 = 5000,
+    };
+
+    pub const OmenConfig = struct {
+        enabled: bool = true,
+        base_url: []const u8 = "http://localhost:3000",
+        health_check: []const u8 = "/health",
+        health_check_interval_s: u32 = 60,
+        timeout_ms: u32 = 10000,
+    };
+};
+
+/// Model alias configuration for simple model selection
+pub const ModelAliasConfig = struct {
+    fast: []const u8 = "llama3.2:1b",
+    smart: []const u8 = "claude-3-5-sonnet-20241022",
+    local: []const u8 = "qwen2.5-coder:7b",
+    balanced: []const u8 = "llama3.2:3b",
 };
 
 pub const OAuthConfig = struct {
@@ -91,13 +138,19 @@ pub const Config = struct {
     
     // Provider preferences
     providers: ProviderPreferencesConfig = ProviderPreferencesConfig{},
-    
+
+    // External services (Glyph MCP, OMEN)
+    services: ServiceConfig = ServiceConfig{},
+
+    // Model aliases for simplified selection
+    model_aliases: ModelAliasConfig = ModelAliasConfig{},
+
     // Streaming configuration
     streaming: StreamingConfig = StreamingConfig{},
-    
+
     // Real-time features
     realtime: RealTimeConfig = RealTimeConfig{},
-    
+
     // Keybindings
     keybindings: KeybindingConfig = KeybindingConfig{},
     
@@ -247,10 +300,30 @@ pub const Config = struct {
             defer self.allocator.free(endpoint);
             self.endpoints.ghostllm = try self.allocator.dupe(u8, endpoint);
         } else |_| {}
-        
+
         if (std.process.getEnvVarOwned(self.allocator, "OLLAMA_ENDPOINT")) |endpoint| {
             defer self.allocator.free(endpoint);
             self.endpoints.ollama = try self.allocator.dupe(u8, endpoint);
+        } else |_| {}
+
+        if (std.process.getEnvVarOwned(self.allocator, "OMEN_BASE_URL")) |endpoint| {
+            defer self.allocator.free(endpoint);
+            self.endpoints.omen = try self.allocator.dupe(u8, endpoint);
+        } else |_| {}
+
+        // Glyph MCP configuration
+        if (std.process.getEnvVarOwned(self.allocator, "GLYPH_MCP_COMMAND")) |command| {
+            const cmd_owned = try self.allocator.dupe(u8, command);
+            self.services.glyph = ServiceConfig.GlyphConfig{
+                .mcp = .{ .stdio = .{ .command = cmd_owned } },
+            };
+        } else |_| {}
+
+        if (std.process.getEnvVarOwned(self.allocator, "GLYPH_MCP_WS")) |ws_url| {
+            const url_owned = try self.allocator.dupe(u8, ws_url);
+            self.services.glyph = ServiceConfig.GlyphConfig{
+                .mcp = .{ .websocket = .{ .url = url_owned } },
+            };
         } else |_| {}
         
         // Features
@@ -333,6 +406,22 @@ pub const Config = struct {
             }
         }
         return null;
+    }
+
+    /// Resolve a model name, checking aliases first
+    pub fn resolveModel(self: *Self, name: []const u8) []const u8 {
+        // Check if it's an alias
+        if (std.mem.eql(u8, name, "fast")) {
+            return self.model_aliases.fast;
+        } else if (std.mem.eql(u8, name, "smart")) {
+            return self.model_aliases.smart;
+        } else if (std.mem.eql(u8, name, "local")) {
+            return self.model_aliases.local;
+        } else if (std.mem.eql(u8, name, "balanced")) {
+            return self.model_aliases.balanced;
+        }
+        // Return the name as-is if not an alias
+        return name;
     }
     
     fn parseToml(allocator: std.mem.Allocator, contents: []const u8) !Self {

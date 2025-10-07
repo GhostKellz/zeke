@@ -182,6 +182,9 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
     } else if (std.mem.eql(u8, command, "doctor")) {
         const doctor = @import("cli/doctor.zig");
         try doctor.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "glyph")) {
+        const glyph = @import("cli/glyph.zig");
+        try glyph.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "serve")) {
         const serve = @import("cli/serve.zig");
         try serve.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});

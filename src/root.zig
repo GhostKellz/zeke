@@ -39,6 +39,7 @@ pub const build = @import("build/mod.zig");
 pub const storage = @import("storage/mod.zig");
 pub const watch = @import("watch.zig");
 pub const integrations = @import("integrations/mod.zig");
+pub const mcp = @import("mcp/mod.zig");
 
 pub const ZekeError = error{
     InitializationFailed,

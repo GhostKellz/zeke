@@ -51,9 +51,12 @@ pub const ExplainResponse = struct {
 };
 
 pub const EditRequest = struct {
-    code: []const u8,
+    code: ?[]const u8 = null, // Optional: provide code directly
+    file: ?[]const u8 = null, // Optional: provide file path (uses MCP fs.read)
     instruction: []const u8,
+    prompt: ?[]const u8 = null, // Alias for instruction
     language: ?[]const u8 = null,
+    dry_run: ?bool = null, // If true, generate diff but don't apply
 };
 
 pub const EditResponse = struct {
@@ -67,6 +70,11 @@ pub const ErrorResponse = struct {
     @"error": []const u8,
     code: ?[]const u8 = null,
 };
+
+/// Global server instance for handler access
+/// This is a workaround for zhttp's handler signature limitation
+var global_server: ?*ZhttpServer = null;
+var global_mutex: std.Thread.Mutex = .{};
 
 /// zhttp-based RPC server for Neovim and editor integrations
 /// Provides REST API endpoints for AI operations with smart routing
@@ -105,6 +113,16 @@ pub const ZhttpServer = struct {
     }
 
     pub fn start(self: *Self) !void {
+        // Register as global server for handlers
+        global_mutex.lock();
+        global_server = self;
+        global_mutex.unlock();
+        defer {
+            global_mutex.lock();
+            global_server = null;
+            global_mutex.unlock();
+        }
+
         self.running.store(true, .release);
         std.log.info("🌐 Zeke RPC Server starting on http://127.0.0.1:{}", .{self.port});
 
@@ -172,15 +190,54 @@ pub const ZhttpServer = struct {
         };
         defer chat_req.deinit();
 
-        // Get smart router from context (TODO: pass via context)
-        // For now, this is a stub - we need to refactor to pass router via handler context
+        // Get server instance
+        global_mutex.lock();
+        const server = global_server;
+        global_mutex.unlock();
+
+        if (server == null) {
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Server not initialized",
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        }
+
+        // Build completion request
+        const completion_req = router.CompletionRequest{
+            .prompt = chat_req.value.message,
+            .model = chat_req.value.model,
+            .temperature = chat_req.value.temperature,
+            .max_tokens = chat_req.value.max_tokens,
+            .intent = chat_req.value.intent,
+            .language = chat_req.value.language,
+            .complexity = chat_req.value.complexity,
+            .project = chat_req.value.project,
+        };
+
+        // Route and execute
+        const completion_res = server.?.smart_router.complete(completion_req) catch |err| {
+            std.log.err("Completion failed: {}", .{err});
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Completion request failed",
+                .code = @errorName(err),
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        };
+
+        // Build response
         const response_json = try std.json.Stringify.valueAlloc(allocator, .{
-            .response = "Chat handler with smart routing - implementation in progress",
-            .model = "test-model",
-            .provider = "test-provider",
-            .tokens_in = 0,
-            .tokens_out = 0,
-            .latency_ms = 0,
+            .response = completion_res.content,
+            .model = completion_res.model,
+            .provider = completion_res.provider,
+            .tokens_in = completion_res.tokens_in,
+            .tokens_out = completion_res.tokens_out,
+            .latency_ms = completion_res.latency_ms,
         }, .{});
         defer allocator.free(response_json);
 
@@ -206,10 +263,47 @@ pub const ZhttpServer = struct {
         };
         defer complete_req.deinit();
 
+        // Get server instance
+        global_mutex.lock();
+        const server = global_server;
+        global_mutex.unlock();
+
+        if (server == null) {
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Server not initialized",
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        }
+
+        // Build completion request
+        const completion_request = router.CompletionRequest{
+            .prompt = complete_req.value.prompt,
+            .model = complete_req.value.model,
+            .max_tokens = complete_req.value.max_tokens,
+            .intent = "completion",
+            .language = complete_req.value.language,
+        };
+
+        // Route and execute
+        const completion_res = server.?.smart_router.complete(completion_request) catch |err| {
+            std.log.err("Completion failed: {}", .{err});
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Completion request failed",
+                .code = @errorName(err),
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        };
+
         const response_json = try std.json.Stringify.valueAlloc(allocator, .{
-            .completion = "Code completion via smart routing - implementation in progress",
-            .model = "test-model",
-            .provider = "test-provider",
+            .completion = completion_res.content,
+            .model = completion_res.model,
+            .provider = completion_res.provider,
         }, .{});
         defer allocator.free(response_json);
 
@@ -235,10 +329,54 @@ pub const ZhttpServer = struct {
         };
         defer explain_req.deinit();
 
+        // Get server instance
+        global_mutex.lock();
+        const server = global_server;
+        global_mutex.unlock();
+
+        if (server == null) {
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Server not initialized",
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        }
+
+        // Build prompt for code explanation
+        const prompt = try std.fmt.allocPrint(
+            allocator,
+            "Explain this code:\n\n{s}",
+            .{explain_req.value.code},
+        );
+        defer allocator.free(prompt);
+
+        // Build completion request
+        const completion_request = router.CompletionRequest{
+            .prompt = prompt,
+            .intent = "explain",
+            .language = explain_req.value.language,
+            .complexity = "simple",
+        };
+
+        // Route and execute
+        const completion_res = server.?.smart_router.complete(completion_request) catch |err| {
+            std.log.err("Explanation failed: {}", .{err});
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Explanation request failed",
+                .code = @errorName(err),
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        };
+
         const response_json = try std.json.Stringify.valueAlloc(allocator, .{
-            .explanation = "Code explanation via smart routing - implementation in progress",
-            .model = "test-model",
-            .provider = "test-provider",
+            .explanation = completion_res.content,
+            .model = completion_res.model,
+            .provider = completion_res.provider,
         }, .{});
         defer allocator.free(response_json);
 
@@ -264,11 +402,201 @@ pub const ZhttpServer = struct {
         };
         defer edit_req.deinit();
 
+        // Get server instance
+        global_mutex.lock();
+        const server = global_server;
+        global_mutex.unlock();
+
+        if (server == null) {
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Server not initialized",
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        }
+
+        // Get instruction (supports both "instruction" and "prompt" fields)
+        const instruction = edit_req.value.prompt orelse edit_req.value.instruction;
+
+        // Determine if we're using MCP (file-based) or direct code
+        const use_mcp = edit_req.value.file != null;
+        const dry_run = edit_req.value.dry_run orelse false;
+
+        // Get original code (either from MCP or request body)
+        var original_code: []const u8 = undefined;
+        var code_from_mcp = false;
+        var mcp_read_start: i64 = 0;
+
+        if (use_mcp and server.?.smart_router.mcp_client != null) {
+            // Use MCP to read file
+            const file_path = edit_req.value.file.?;
+            mcp_read_start = std.time.milliTimestamp();
+
+            const mcp_result = server.?.smart_router.mcp_client.?.readFile(file_path) catch |err| {
+                std.log.err("MCP fs.read failed: {}", .{err});
+                const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                    .@"error" = "Failed to read file via MCP",
+                    .code = @errorName(err),
+                }, .{});
+                defer allocator.free(err_json);
+                res.setStatus(500);
+                try res.sendJson(err_json);
+                return;
+            };
+            defer mcp_result.deinit();
+
+            if (mcp_result.is_error) {
+                const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                    .@"error" = "MCP tool returned error",
+                    .code = mcp_result.content,
+                }, .{});
+                defer allocator.free(err_json);
+                res.setStatus(500);
+                try res.sendJson(err_json);
+                return;
+            }
+
+            original_code = try allocator.dupe(u8, mcp_result.content);
+            code_from_mcp = true;
+
+            // Record MCP tool call
+            const mcp_read_end = std.time.milliTimestamp();
+            if (server.?.smart_router.db) |db| {
+                db.recordToolCall(.{
+                    .tool_name = "fs.read",
+                    .service = "glyph",
+                    .latency_ms = @intCast(mcp_read_end - mcp_read_start),
+                    .success = true,
+                    .created_at = std.time.timestamp(),
+                }) catch |err| {
+                    std.log.warn("Failed to record tool call: {}", .{err});
+                };
+            }
+        } else if (edit_req.value.code) |code| {
+            original_code = code;
+        } else {
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Must provide either 'code' or 'file'",
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(400);
+            try res.sendJson(err_json);
+            return;
+        }
+        defer if (code_from_mcp) allocator.free(original_code);
+
+        // Build prompt for code editing
+        const prompt = try std.fmt.allocPrint(
+            allocator,
+            "Edit this code according to the instruction.\n\nOriginal code:\n```\n{s}\n```\n\nInstruction: {s}\n\nProvide only the edited code without explanations.",
+            .{ original_code, instruction },
+        );
+        defer allocator.free(prompt);
+
+        // Build completion request
+        const completion_request = router.CompletionRequest{
+            .prompt = prompt,
+            .intent = "refactor",
+            .language = edit_req.value.language,
+            .complexity = "medium",
+        };
+
+        // Route and execute
+        const completion_res = server.?.smart_router.complete(completion_request) catch |err| {
+            std.log.err("Edit failed: {}", .{err});
+            const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                .@"error" = "Edit request failed",
+                .code = @errorName(err),
+            }, .{});
+            defer allocator.free(err_json);
+            res.setStatus(500);
+            try res.sendJson(err_json);
+            return;
+        };
+
+        // Generate diff using MCP if available
+        var diff_content: ?[]const u8 = null;
+        if (server.?.smart_router.mcp_client) |mcp_client| {
+            const diff_gen_start = std.time.milliTimestamp();
+
+            if (mcp_client.generateDiff(original_code, completion_res.content)) |diff_result| {
+                defer diff_result.deinit();
+
+                if (!diff_result.is_error) {
+                    diff_content = try allocator.dupe(u8, diff_result.content);
+
+                    // Record tool call
+                    const diff_gen_end = std.time.milliTimestamp();
+                    if (server.?.smart_router.db) |db| {
+                        db.recordToolCall(.{
+                            .tool_name = "diff.generate",
+                            .service = "glyph",
+                            .latency_ms = @intCast(diff_gen_end - diff_gen_start),
+                            .success = true,
+                            .created_at = std.time.timestamp(),
+                        }) catch |err| {
+                            std.log.warn("Failed to record tool call: {}", .{err});
+                        };
+                    }
+                }
+            } else |err| {
+                std.log.warn("MCP diff.generate failed: {}", .{err});
+            }
+        }
+        defer if (diff_content) |dc| allocator.free(dc);
+
+        // Apply diff if not dry_run and file path provided
+        if (use_mcp and !dry_run and edit_req.value.file != null and diff_content != null) {
+            if (server.?.smart_router.mcp_client) |mcp_client| {
+                const apply_start = std.time.milliTimestamp();
+
+                const apply_result = mcp_client.applyDiff(edit_req.value.file.?, diff_content.?) catch |err| {
+                    std.log.err("MCP diff.apply failed: {}", .{err});
+                    const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                        .@"error" = "Failed to apply diff",
+                        .code = @errorName(err),
+                    }, .{});
+                    defer allocator.free(err_json);
+                    res.setStatus(500);
+                    try res.sendJson(err_json);
+                    return;
+                };
+                defer apply_result.deinit();
+
+                if (apply_result.is_error) {
+                    const err_json = try std.json.Stringify.valueAlloc(allocator, .{
+                        .@"error" = "MCP diff.apply returned error",
+                        .code = apply_result.content,
+                    }, .{});
+                    defer allocator.free(err_json);
+                    res.setStatus(500);
+                    try res.sendJson(err_json);
+                    return;
+                }
+
+                // Record tool call
+                const apply_end = std.time.milliTimestamp();
+                if (server.?.smart_router.db) |db| {
+                    db.recordToolCall(.{
+                        .tool_name = "diff.apply",
+                        .service = "glyph",
+                        .latency_ms = @intCast(apply_end - apply_start),
+                        .success = true,
+                        .created_at = std.time.timestamp(),
+                    }) catch |err| {
+                        std.log.warn("Failed to record tool call: {}", .{err});
+                    };
+                }
+            }
+        }
+
         const response_json = try std.json.Stringify.valueAlloc(allocator, .{
-            .edited_code = "Edited code via smart routing - implementation in progress",
-            .diff = null,
-            .model = "test-model",
-            .provider = "test-provider",
+            .edited_code = completion_res.content,
+            .diff = diff_content,
+            .model = completion_res.model,
+            .provider = completion_res.provider,
         }, .{});
         defer allocator.free(response_json);
 

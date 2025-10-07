@@ -2,6 +2,7 @@ const std = @import("std");
 const ollama = @import("../providers/ollama.zig");
 const omen = @import("../providers/omen.zig");
 const routing_db = @import("../db/routing.zig");
+const mcp = @import("../mcp/mod.zig");
 
 /// Smart router that decides between local (Ollama) and cloud (OMEN) providers
 pub const SmartRouter = struct {
@@ -9,6 +10,7 @@ pub const SmartRouter = struct {
     ollama_client: ?*ollama.OllamaProvider,
     omen_client: ?*omen.OmenClient,
     db: ?*routing_db.RoutingDB,
+    mcp_client: ?*mcp.McpClient,
     config: RoutingConfig,
 
     const Self = @This();
@@ -25,8 +27,13 @@ pub const SmartRouter = struct {
             .ollama_client = ollama_client,
             .omen_client = omen_client,
             .db = db,
+            .mcp_client = null, // Set separately via setMcpClient
             .config = config,
         };
+    }
+
+    pub fn setMcpClient(self: *Self, client: *mcp.McpClient) void {
+        self.mcp_client = client;
     }
 
     /// Route a completion request to the best provider

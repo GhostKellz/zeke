@@ -52,6 +52,25 @@ pub const Model = struct {
     metadata: ?[]const u8 = null, // JSON blob
 };
 
+/// Service health status
+pub const ServiceHealth = struct {
+    service: []const u8, // "glyph", "omen", "ollama"
+    status: []const u8, // "healthy", "degraded", "down", "unknown"
+    latency_ms: ?u32 = null,
+    error_message: ?[]const u8 = null,
+    last_checked: i64,
+};
+
+/// Tool call metrics for MCP operations
+pub const ToolCallStats = struct {
+    tool_name: []const u8, // "fs.read", "fs.write", "diff.apply", etc.
+    service: []const u8, // "glyph"
+    latency_ms: u32,
+    success: bool = true,
+    error_code: ?[]const u8 = null,
+    created_at: i64,
+};
+
 pub const RoutingDB = struct {
     db: *zqlite.Connection,
     allocator: std.mem.Allocator,
@@ -151,9 +170,31 @@ pub const RoutingDB = struct {
             \\CREATE INDEX IF NOT EXISTS idx_trace_project_time ON routing_trace(project, created_at DESC);
         ;
 
+        const services_migration =
+            \\CREATE TABLE IF NOT EXISTS service_health (
+            \\  service TEXT PRIMARY KEY,
+            \\  status TEXT NOT NULL,
+            \\  latency_ms INTEGER,
+            \\  error_message TEXT,
+            \\  last_checked INTEGER NOT NULL
+            \\);
+            \\CREATE TABLE IF NOT EXISTS tool_calls (
+            \\  id INTEGER PRIMARY KEY AUTOINCREMENT,
+            \\  tool_name TEXT NOT NULL,
+            \\  service TEXT NOT NULL,
+            \\  latency_ms INTEGER NOT NULL,
+            \\  success INTEGER NOT NULL DEFAULT 1,
+            \\  error_code TEXT,
+            \\  created_at INTEGER NOT NULL
+            \\);
+            \\CREATE INDEX IF NOT EXISTS idx_tool_calls_service ON tool_calls(service, created_at DESC);
+            \\CREATE INDEX IF NOT EXISTS idx_tool_calls_tool_name ON tool_calls(tool_name);
+        ;
+
         // Execute migrations
         _ = try self.db.exec(models_migration);
         _ = try self.db.exec(routing_migration);
+        _ = try self.db.exec(services_migration);
     }
 
     /// Upsert routing preferences for a project
@@ -262,6 +303,61 @@ pub const RoutingDB = struct {
         );
         defer self.allocator.free(sql);
         _ = try self.db.exec(sql);
+    }
+
+    /// Record service health check
+    pub fn recordServiceHealth(self: *RoutingDB, health: ServiceHealth) !void {
+        const sql = try std.fmt.allocPrint(
+            self.allocator,
+            \\INSERT OR REPLACE INTO service_health(service, status, latency_ms, error_message, last_checked)
+            \\VALUES ('{s}', '{s}', {?d}, '{s}', {d})
+        ,
+            .{
+                health.service,
+                health.status,
+                health.latency_ms,
+                health.error_message orelse "",
+                health.last_checked,
+            },
+        );
+        defer self.allocator.free(sql);
+        _ = try self.db.exec(sql);
+    }
+
+    /// Record tool call metrics
+    pub fn recordToolCall(self: *RoutingDB, tool_call: ToolCallStats) !void {
+        const sql = try std.fmt.allocPrint(
+            self.allocator,
+            \\INSERT INTO tool_calls(tool_name, service, latency_ms, success, error_code, created_at)
+            \\VALUES ('{s}', '{s}', {d}, {d}, '{s}', {d})
+        ,
+            .{
+                tool_call.tool_name,
+                tool_call.service,
+                tool_call.latency_ms,
+                @intFromBool(tool_call.success),
+                tool_call.error_code orelse "",
+                tool_call.created_at,
+            },
+        );
+        defer self.allocator.free(sql);
+        _ = try self.db.exec(sql);
+    }
+
+    /// Get latest health status for a service
+    pub fn getServiceHealth(self: *RoutingDB, service: []const u8) !?ServiceHealth {
+        const sql = try std.fmt.allocPrint(
+            self.allocator,
+            \\SELECT service, status, latency_ms, error_message, last_checked
+            \\FROM service_health WHERE service = '{s}'
+        ,
+            .{service},
+        );
+        defer self.allocator.free(sql);
+
+        // TODO: Implement proper query execution and parsing
+        _ = self.db;
+        return null;
     }
 };
 

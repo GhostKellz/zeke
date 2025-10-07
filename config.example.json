@@ -1,0 +1,109 @@
+{
+  "default_model": "qwen2.5-coder:7b",
+  "auto_complete": true,
+  "chat_enabled": true,
+  "inline_suggestions": true,
+  "context_lines": 50,
+  "smart_routing": true,
+
+  "endpoints": {
+    "copilot": "https://api.githubcopilot.com",
+    "claude": "https://api.anthropic.com",
+    "openai": "https://api.openai.com",
+    "ollama": "http://localhost:11434",
+    "ghostllm": "http://localhost:8080",
+    "omen": "http://localhost:3000"
+  },
+
+  "services": {
+    "glyph": {
+      "enabled": true,
+      "mcp": {
+        "stdio": {
+          "command": "/data/projects/glyph/target/release/glyph",
+          "args": ["serve", "--transport", "stdio"]
+        }
+      },
+      "health_check_interval_s": 30,
+      "timeout_ms": 5000
+    },
+    "omen": {
+      "enabled": true,
+      "base_url": "http://localhost:3000",
+      "health_check": "/health",
+      "health_check_interval_s": 60,
+      "timeout_ms": 10000
+    }
+  },
+
+  "model_aliases": {
+    "fast": "llama3.2:1b",
+    "smart": "claude-3-5-sonnet-20241022",
+    "local": "qwen2.5-coder:7b",
+    "balanced": "llama3.2:3b"
+  },
+
+  "providers": {
+    "default_provider": "ghostllm",
+    "fallback_enabled": true,
+    "health_check_interval_s": 300,
+    "auto_switch_on_failure": true,
+    "preferred_providers": ["ghostllm", "claude", "openai"]
+  },
+
+  "streaming": {
+    "enabled": true,
+    "chunk_size": 4096,
+    "timeout_ms": 30000,
+    "enable_websocket": true,
+    "websocket_port": 8081
+  },
+
+  "realtime": {
+    "enabled": false,
+    "typing_assistance": true,
+    "code_analysis": true,
+    "auto_suggestions": true,
+    "debounce_ms": 300
+  },
+
+  "keybindings": {
+    "open_panel": "<leader>ac",
+    "accept_suggestion": "<C-g>",
+    "next_suggestion": "<C-]>",
+    "prev_suggestion": "<C-[>",
+    "dismiss": "<C-\\>",
+    "ai_palette": "<leader>ai",
+    "toggle_inline": "<leader>at"
+  },
+
+  "performance": {
+    "request_timeout_ms": 30000,
+    "max_concurrent_requests": 5,
+    "rate_limit_requests_per_minute": 100
+  },
+
+  "logging": {
+    "log_level": "info",
+    "log_file": null,
+    "log_requests": false
+  },
+
+  "security": {
+    "store_tokens_encrypted": true,
+    "telemetry_enabled": false,
+    "validate_ssl": true
+  },
+
+  "storage": {
+    "enable_storage": true,
+    "storage_encryption_key": null,
+    "storage_path": "zeke_data.db"
+  },
+
+  "routing": {
+    "prefer_local": true,
+    "fallback_to_cloud": true,
+    "max_cloud_cost_cents": 200
+  }
+}

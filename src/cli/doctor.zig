@@ -2,6 +2,8 @@ const std = @import("std");
 const zeke = @import("zeke");
 const ollama = zeke.providers.ollama;
 const routing_db = zeke.db;
+const mcp = zeke.mcp;
+const config = zeke.config;
 
 pub const Status = enum { ok, warning, err };
 
@@ -15,6 +17,7 @@ pub const DoctorResult = struct {
 pub const DoctorOptions = struct {
     check_ollama: bool = true,
     check_omen: bool = true,
+    check_mcp: bool = true,
     check_db: bool = true,
     check_providers: bool = true,
     verbose: bool = false,
@@ -68,6 +71,11 @@ pub const Doctor = struct {
         // Check OMEN
         if (options.check_omen) {
             try self.checkOmen(options.verbose);
+        }
+
+        // Check MCP (Glyph)
+        if (options.check_mcp) {
+            try self.checkMcp(options.verbose);
         }
 
         // Check other providers
@@ -233,6 +241,89 @@ pub const Doctor = struct {
         std.debug.print("\n", .{});
     }
 
+    fn checkMcp(self: *Doctor, verbose: bool) !void {
+        _ = verbose;
+        std.debug.print("📋 Checking MCP (Glyph)...\n", .{});
+
+        // Try to load config
+        const home = std.posix.getenv("HOME") orelse {
+            try self.addResult("MCP", .err, "HOME environment variable not set", null);
+            std.debug.print("  ❌ Cannot find config: HOME not set\n\n", .{});
+            return;
+        };
+
+        const config_path = try std.fmt.allocPrint(self.allocator, "{s}/.config/zeke/config.json", .{home});
+        defer self.allocator.free(config_path);
+
+        // Load config file
+        var cfg = config.Config.loadFromFile(self.allocator, config_path) catch {
+            try self.addResult("MCP", .warning, "Config file not found or invalid", config_path);
+            std.debug.print("  ⚠️  Config not found: {s}\n", .{config_path});
+            std.debug.print("  💡 MCP is optional. Copy config.example.json to set up Glyph integration.\n\n", .{});
+            return;
+        };
+        defer cfg.deinit();
+
+        // Check if Glyph service is configured
+        if (cfg.services.glyph == null) {
+            try self.addResult("MCP", .warning, "Glyph service not configured", null);
+            std.debug.print("  ⚠️  Glyph service not configured in {s}\n", .{config_path});
+            std.debug.print("  💡 Add 'services.glyph' section to config.json\n\n", .{});
+            return;
+        }
+
+        const glyph_config = cfg.services.glyph.?;
+        if (!glyph_config.enabled) {
+            try self.addResult("MCP", .warning, "Glyph service disabled", null);
+            std.debug.print("  ⚠️  Glyph service is disabled\n\n", .{});
+            return;
+        }
+
+        // Try to initialize MCP client
+        var mcp_client = mcp.McpClient.initFromConfig(self.allocator, glyph_config) catch |e| {
+            const msg = try std.fmt.allocPrint(self.allocator, "Failed to initialize MCP client: {}", .{e});
+            defer self.allocator.free(msg);
+            try self.addResult("MCP", .err, msg, null);
+            std.debug.print("  ❌ {s}\n\n", .{msg});
+            return;
+        };
+        defer mcp_client.deinit();
+
+        std.debug.print("  ✅ MCP client initialized\n", .{});
+
+        // Try a simple ping/tool call
+        std.debug.print("  🧪 Testing MCP connection...\n", .{});
+
+        var params = std.json.ObjectMap.init(self.allocator);
+        defer params.deinit();
+
+        params.put("name", .{ .string = "ping" }) catch {};
+        params.put("arguments", .{ .object = std.json.ObjectMap.init(self.allocator) }) catch {};
+
+        const start_time = std.time.milliTimestamp();
+        const result = mcp_client.callTool("ping", .{ .object = params }) catch |e| {
+            const msg = try std.fmt.allocPrint(self.allocator, "MCP tool call failed: {}", .{e});
+            defer self.allocator.free(msg);
+            try self.addResult("MCP", .warning, msg, null);
+            std.debug.print("  ⚠️  {s}\n", .{msg});
+            std.debug.print("  💡 Make sure Glyph is running or configured correctly\n\n", .{});
+            return;
+        };
+        defer result.deinit();
+
+        const end_time = std.time.milliTimestamp();
+        const latency = end_time - start_time;
+
+        if (result.is_error) {
+            try self.addResult("MCP", .warning, "MCP tool returned error", result.content);
+            std.debug.print("  ⚠️  MCP tool returned error: {s}\n\n", .{result.content});
+        } else {
+            try self.addResult("MCP", .ok, "MCP is healthy", null);
+            std.debug.print("  ✅ MCP connection successful\n", .{});
+            std.debug.print("  ⚡ Latency: {d}ms\n\n", .{latency});
+        }
+    }
+
     fn checkProviders(self: *Doctor, verbose: bool) !void {
         std.debug.print("🔑 Checking provider credentials...\n", .{});
 
@@ -332,16 +423,25 @@ pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
         } else if (std.mem.eql(u8, arg, "--ollama")) {
             options.check_ollama = true;
             options.check_omen = false;
+            options.check_mcp = false;
             options.check_db = false;
             options.check_providers = false;
         } else if (std.mem.eql(u8, arg, "--omen")) {
             options.check_ollama = false;
             options.check_omen = true;
+            options.check_mcp = false;
+            options.check_db = false;
+            options.check_providers = false;
+        } else if (std.mem.eql(u8, arg, "--mcp") or std.mem.eql(u8, arg, "--glyph")) {
+            options.check_ollama = false;
+            options.check_omen = false;
+            options.check_mcp = true;
             options.check_db = false;
             options.check_providers = false;
         } else if (std.mem.eql(u8, arg, "--db")) {
             options.check_ollama = false;
             options.check_omen = false;
+            options.check_mcp = false;
             options.check_db = true;
             options.check_providers = false;
         }
