@@ -137,27 +137,8 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
             try handleModelShow(&zeke_instance);
         }
     } else if (std.mem.eql(u8, command, "auth")) {
-        if (args.len > 3) {
-            try handleAuth(&zeke_instance, args[2], args[3]);
-        } else if (args.len > 2) {
-            if (std.mem.eql(u8, args[2], "list")) {
-                try handleAuthList();
-            } else if (std.mem.eql(u8, args[2], "google")) {
-                try handleOAuthFlow(&zeke_instance, .google);
-            } else if (std.mem.eql(u8, args[2], "github")) {
-                try handleOAuthFlow(&zeke_instance, .github);
-            } else if (std.mem.eql(u8, args[2], "test")) {
-                if (args.len > 3) {
-                    try handleAuthTest(&zeke_instance, args[3]);
-                } else {
-                    std.debug.print("Usage: zeke auth test <provider>\n", .{});
-                }
-            } else {
-                std.debug.print("Usage: zeke auth <provider> <token> | zeke auth list | zeke auth google | zeke auth github\n", .{});
-            }
-        } else {
-            std.debug.print("Usage: zeke auth <provider> <token> | zeke auth list | zeke auth google | zeke auth github\n", .{});
-        }
+        const auth_cli = @import("cli/auth.zig");
+        try auth_cli.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "provider")) {
         if (args.len > 2) {
             if (std.mem.eql(u8, args[2], "switch") and args.len > 3) {
@@ -198,6 +179,12 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
         }
     } else if (std.mem.eql(u8, command, "watch")) {
         try zeke.watch.runWatchMode(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "doctor")) {
+        const doctor = @import("cli/doctor.zig");
+        try doctor.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "serve")) {
+        const serve = @import("cli/serve.zig");
+        try serve.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "tui")) {
         try handleTui(&zeke_instance, allocator);
     } else if (std.mem.eql(u8, command, "nvim")) {

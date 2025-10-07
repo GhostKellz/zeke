@@ -1,6 +1,10 @@
 const std = @import("std");
 const api = @import("../api/client.zig");
 
+// Provider client exports
+pub const ollama = @import("ollama.zig");
+pub const omen = @import("omen.zig");
+
 pub const ProviderCapability = enum {
     chat_completion,
     code_completion,

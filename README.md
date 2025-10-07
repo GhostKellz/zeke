@@ -15,9 +15,11 @@
 </div>
 
 ---
+## 🧠 Guiding Principle
+**Zeke thinks. Omen routes. GhostLLM speaks. Glyph connects. Rune acts. Grim creates.**
 
+---
 ### The Next-Gen AI Copilot for CLI & Development Workflows
-
 ZEKE brings lightning-fast, native Zig performance to AI-powered coding workflows, integrating:
 
 * **GitHub Copilot** (chat, inline, code actions)

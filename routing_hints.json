@@ -1,0 +1,57 @@
+{
+  "$schema": "https://example.com/zeke-routing.schema.json",
+  "defaults": {
+    "model": "auto",
+    "tags": {
+      "project": "default",
+      "latency": "normal",
+      "budget": "normal",
+      "intent": "code",
+      "size_hint": "small"
+    }
+  },
+  "aliases": {
+    "code-fast": {
+      "provider": "ollama",
+      "model": "deepseek-coder:14b",
+      "intent": "code",
+      "latency": "low",
+      "size_hint": "tiny"
+    },
+    "code-plus": {
+      "provider": "ollama",
+      "model": "deepseek-coder:33b",
+      "intent": "code",
+      "latency": "normal",
+      "size_hint": "small"
+    },
+    "code-smart": {
+      "provider": "azure",
+      "model": "gpt-5-codex",
+      "intent": "code",
+      "latency": "normal",
+      "size_hint": "medium"
+    },
+    "reason-deep": {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet",
+      "intent": "reason",
+      "latency": "normal",
+      "size_hint": "large"
+    }
+  },
+  "escalation": {
+    "first_token_ms": 2000,
+    "large_tokens_out": 2000,
+    "max_tool_calls": 1,
+    "fallback_order": ["ollama", "anthropic", "openai", "azure"]
+  },
+  "headers": {
+    "x-client": "zeke",
+    "x-project": "{{project}}",
+    "x-intent": "{{intent}}",
+    "x-latency": "{{latency}}",
+    "x-budget": "{{budget}}",
+    "x-size-hint": "{{size_hint}}"
+  }
+}

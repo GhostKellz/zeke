@@ -13,9 +13,23 @@ pub const context = @import("context/mod.zig");
 pub const concurrent = @import("concurrent/mod.zig");
 pub const system = @import("system/arch.zig");
 pub const tui = @import("tui/mod.zig");
+pub const routing = struct {
+    pub const SmartRouter = @import("routing/router.zig").SmartRouter;
+    pub const RoutingConfig = @import("routing/router.zig").RoutingConfig;
+    pub const CompletionRequest = @import("routing/router.zig").CompletionRequest;
+    pub const CompletionResponse = @import("routing/router.zig").CompletionResponse;
+};
+pub const db = struct {
+    pub const RoutingDB = @import("db/routing.zig").RoutingDB;
+    pub const RoutingStats = @import("db/routing.zig").RoutingStats;
+    pub const RoutingPrefs = @import("db/routing.zig").RoutingPrefs;
+    pub const Model = @import("db/routing.zig").Model;
+    pub const getRecentStats = @import("db/routing.zig").getRecentStats;
+};
 pub const rpc = struct {
     pub const GhostRPC = @import("rpc/ghost_rpc_standalone.zig").GhostRPC;
     pub const HttpServer = @import("rpc/http_server.zig").HttpServer;
+    pub const ZhttpServer = @import("rpc/zhttp_server.zig").ZhttpServer;
     pub const ResponseFormats = @import("rpc/response_formats.zig").ResponseFormats;
     pub const MsgPackRPC = GhostRPC; // Alias for backward compatibility
 };

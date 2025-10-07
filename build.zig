@@ -55,6 +55,17 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const zhttp = b.dependency("zhttp", .{
+        .target = target,
+        .optimize = optimize,
+        .engine_h1 = true,    // HTTP/1.1 for REST API
+        .engine_h2 = true,    // HTTP/2 for performance
+        .engine_h3 = false,   // No HTTP/3 needed yet
+        .async = true,        // Async runtime for concurrent requests
+        .with_brotli = false, // No Brotli needed
+        .with_zlib = true,    // Enable gzip compression
+        .quic_backend = "none",
+    });
 
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
@@ -83,6 +94,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "grove", .module = grove.module("grove") },
             .{ .name = "rune", .module = rune.module("rune") },
             .{ .name = "ghostlang", .module = ghostlang.module("ghostlang") },
+            .{ .name = "zhttp", .module = zhttp.module("zhttp") },
         },
     });
 

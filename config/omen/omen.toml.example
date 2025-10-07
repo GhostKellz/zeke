@@ -1,0 +1,124 @@
+# OMEN Configuration for Zeke Integration
+# This is the server-side routing config for OMEN
+
+[routing]
+# Prefer local models for Zeke's high-frequency requests
+prefer_local_for = ["code", "completion", "refactor", "tests"]
+# Fallback order when primary fails
+fallback_order = ["ollama", "anthropic", "openai", "azure"]
+# Enable smart routing based on intent tags
+intent_routing = true
+
+[providers.ollama]
+# Ollama endpoints (Docker or host)
+endpoints = ["http://ollama:11434", "http://localhost:11434"]
+# Models to use
+models = [
+  "deepseek-coder:33b",
+  "codestral",
+  "llama4:16x17b",
+  "llama3:8b",
+  "llama3.2-vision:11b",
+  "deepseek-r1:32b",
+  "phi4:14b"
+]
+# Priority (higher = preferred)
+priority = 100
+# Use for these intents
+use_for = ["code", "completion", "refactor", "tests", "explain"]
+# Timeout (local can be longer)
+timeout_ms = 60000
+
+[providers.anthropic]
+api_key = "env:ANTHROPIC_API_KEY"
+models = ["claude-3-5-sonnet-20241022"]
+priority = 80
+use_for = ["reason", "architecture", "docs", "complex-refactor"]
+timeout_ms = 45000
+
+[providers.openai]
+api_key = "env:OPENAI_API_KEY"
+models = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]
+priority = 70
+use_for = ["reason", "vision", "docs"]
+timeout_ms = 30000
+
+[providers.azure]
+endpoint = "env:AZURE_OPENAI_ENDPOINT"
+api_key = "env:AZURE_OPENAI_API_KEY"
+models = ["gpt-4", "gpt-4o"]
+priority = 60
+use_for = ["reason", "enterprise"]
+timeout_ms = 30000
+
+[intent_routing]
+# Intent-specific routing rules
+
+[intent_routing.code]
+primary_provider = "ollama"
+model = "deepseek-coder:33b"
+max_tokens_local = 2048  # Use local if response < 2K tokens
+timeout_ms = 5000
+
+[intent_routing.completion]
+primary_provider = "ollama"
+model = "deepseek-coder:33b"
+timeout_ms = 500  # Fast completions only
+no_fallback = true  # Never wait for cloud
+
+[intent_routing.refactor]
+# Complexity-based routing
+simple_provider = "ollama"
+simple_model = "codestral"
+complex_provider = "anthropic"
+complex_model = "claude-3-5-sonnet-20241022"
+complexity_threshold = "medium"
+
+[intent_routing.reason]
+primary_provider = "anthropic"
+model = "claude-3-5-sonnet-20241022"
+fallback_provider = "openai"
+fallback_model = "gpt-4o"
+
+[intent_routing.tests]
+primary_provider = "ollama"
+model = "codestral"
+fallback_provider = "anthropic"
+
+[cache]
+# Response caching configuration
+enabled = true
+backend = "redis"
+redis_url = "redis://localhost:6379"
+# TTLs per intent
+completion_ttl = 7200  # 2 hours
+code_ttl = 3600        # 1 hour
+reason_ttl = 1800      # 30 minutes
+
+[performance]
+# Latency targets
+completion_timeout_ms = 300
+completion_max_latency_ms = 200
+chat_timeout_ms = 30000
+chat_prefer_quality = true
+refactor_timeout_ms = 15000
+refactor_prefer_local = true
+
+[http]
+# HTTP client settings
+max_connections_per_provider = 100
+keepalive = true
+connection_timeout_ms = 2000
+tcp_nodelay = true  # Low latency for Zeke
+
+[quotas]
+# Usage quotas (optional)
+# monthly_budget_usd = 100
+# per_user_daily_requests = 1000
+
+[observability]
+# Metrics and tracing
+enable_prometheus = true
+prometheus_port = 9090
+enable_tracing = false
+# trace_endpoint = "http://jaeger:14268/api/traces"

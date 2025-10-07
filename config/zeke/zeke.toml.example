@@ -1,0 +1,100 @@
+# Zeke Configuration File
+# Copy to ~/.config/zeke/zeke.toml and customize
+# Version: 0.2.8
+
+[api]
+# OMEN routing endpoint (preferred) or direct provider endpoint
+base_url = "http://localhost:8080/v1"
+# Fallback to direct Ollama if OMEN is unavailable
+fallback_url = "http://localhost:11434"
+timeout_ms = 30000
+
+[ollama]
+# Ollama endpoints (CSV for multiple instances)
+endpoints = ["http://localhost:11434"]
+# Longer timeout for local inference
+timeout_ms = 60000
+# Keep models loaded in memory
+keep_alive = "30m"
+# Auto-pull models if missing
+auto_pull = false
+
+[routing]
+# Prefer local models for these intent types
+prefer_local_for = ["code", "completion", "refactor", "tests", "explain"]
+# Fallback to cloud if local times out or fails
+fallback_to_cloud = true
+# Timeout before escalating to cloud (ms)
+first_token_timeout_ms = 2000
+# Escalation threshold: "low", "medium", "high"
+# Controls when to escalate based on prompt complexity
+escalation_threshold = "medium"
+
+[aliases]
+# Local models (Ollama)
+code-fast = "ollama:deepseek-coder:33b"
+code-smart = "ollama:codestral"
+code-vision = "ollama:llama3.2-vision:11b"
+local = "ollama:llama3:8b"
+
+# Cloud models (via OMEN or direct)
+reason-deep = "anthropic:claude-3-5-sonnet-20241022"
+reason-fast = "openai:gpt-4o-mini"
+reason-vision = "openai:gpt-4o"
+
+# Default alias for each intent
+[intent_defaults]
+code = "code-fast"
+completion = "code-fast"
+refactor = "code-smart"
+reason = "reason-deep"
+tests = "code-fast"
+explain = "code-smart"
+docs = "reason-fast"
+vision = "code-vision"
+
+[providers.anthropic]
+api_key = "env:ANTHROPIC_API_KEY"
+# Or use Google sign-in (see: zeke auth google)
+
+[providers.openai]
+api_key = "env:OPENAI_API_KEY"
+
+[providers.azure]
+endpoint = "https://your-aoai.openai.azure.com/"
+api_key = "env:AZURE_OPENAI_API_KEY"
+# Deployment name mappings (AOAI specific)
+# deployments = { "gpt-4" = "gpt4-deployment", "gpt-4o" = "gpt4o-deployment" }
+
+[providers.ollama]
+# Can override endpoints per-project
+# endpoints = ["http://192.168.1.50:11434"]
+
+[zqlite]
+# Path to routing database
+path = "~/.local/share/zeke/routing.db"
+# Track routing decisions and metrics
+track_metrics = true
+# Cleanup old stats after N days
+retention_days = 90
+
+[watch]
+# Watch mode configuration
+auto_fix = false
+auto_commit = false
+# File patterns to ignore
+ignore = [".git", "node_modules", "target", "zig-cache", "zig-out"]
+# Debounce delay (ms)
+debounce_ms = 500
+
+[completion]
+# Inline completion settings
+enabled = true
+trigger_chars = [".", ":", "(", "[", "{"]
+debounce_ms = 150
+max_suggestions = 3
+
+[logging]
+level = "info"  # "debug", "info", "warn", "error"
+file = "~/.local/share/zeke/zeke.log"
+max_size_mb = 10
