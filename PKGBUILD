@@ -8,7 +8,8 @@ arch=('x86_64' 'aarch64')
 url='https://github.com/ghostkellz/zeke'
 license=('MIT')
 depends=('zlib')
-makedepends=('zig>=0.15.0' 'git')
+makedepends=('git')
+# NOTE: Requires Zig >= 0.15.0 (install manually or via pacman)
 optdepends=(
     'ollama: Local LLM inference'
     'docker: For OMEN container deployment'
@@ -18,6 +19,15 @@ sha256sums=('SKIP')
 
 build() {
     cd "${srcdir}/${pkgname}"
+
+    # Verify Zig is installed
+    if ! command -v zig &> /dev/null; then
+        error "Zig compiler not found. Install zig manually or via: pacman -S zig"
+        return 1
+    fi
+
+    ZIG_VERSION=$(zig version | cut -d'-' -f1)
+    msg2 "Building with Zig ${ZIG_VERSION}..."
 
     # Build in release mode
     zig build -Doptimize=ReleaseSafe
