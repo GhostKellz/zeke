@@ -33,7 +33,7 @@ makepkg -si
 ### From Source
 
 **Requirements:**
-- Zig >= 0.15.0
+- Zig >= 0.16.0 (0.15.x lacks the inline assembly fixes required by zsync 0.5.x)
 - Git
 - zlib
 

@@ -11,7 +11,7 @@ const git_ops = zeke.git;
 const search = zeke.search;
 
 // Version will be set by build system
-const VERSION = "0.2.8";
+const VERSION = "0.2.9";
 const build_ops = zeke.build;
 
 // Simple command structure for ZEKE AI
@@ -41,6 +41,18 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
+
+    // Check if this is an auth command - skip zsync for simple auth operations
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const is_auth_command = args.len >= 2 and std.mem.eql(u8, args[1], "auth");
+
+    if (is_auth_command) {
+        // Auth commands don't need zsync runtime - run directly
+        try zekeMain(allocator);
+        return;
+    }
 
     // Use zsync v0.5.4 hybrid execution for optimal performance
     const cpu_count = std.Thread.getCpuCount() catch 4;

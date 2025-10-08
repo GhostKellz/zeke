@@ -14,7 +14,7 @@ optdepends=(
     'ollama: Local LLM inference'
     'docker: For OMEN container deployment'
 )
-source=("git+https://github.com/ghostkellz/zeke.git#tag=v${pkgver}")
+source=("git+https://github.com/ghostkellz/zeke.git#branch=main")
 sha256sums=('SKIP')
 
 build() {

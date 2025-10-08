@@ -18,7 +18,8 @@
 .env
 .env.local
 .env.*.local
-
+.env
+*.env
 # Configuration files with secrets
 *config*.toml
 !*config*.example.toml
@@ -60,5 +61,12 @@ node_modules/
 /archive
 archive/
 CLAUDE.md
-TODO.md 
+TODO.md
 REVOLUTIONARY_ROADMAP.md
+omen/
+
+# Arch Linux package files
+pkg/
+zeke/
+src/zeke/
+*.pkg.tar.zst

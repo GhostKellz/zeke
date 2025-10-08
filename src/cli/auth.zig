@@ -15,13 +15,13 @@ pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
         var auth = try AuthManager.init(allocator);
         defer auth.deinit();
         const cred = try auth.authorizeGoogle();
-        // Save the OAuth tokens
+        defer auth.freeCredential(cred);
         try auth.upsertCredential(cred);
     } else if (std.mem.eql(u8, subcommand, "github")) {
         var auth = try AuthManager.init(allocator);
         defer auth.deinit();
         const cred = try auth.authorizeGitHub();
-        // Save the OAuth tokens
+        defer auth.freeCredential(cred);
         try auth.upsertCredential(cred);
     } else if (std.mem.eql(u8, subcommand, "openai") or
                std.mem.eql(u8, subcommand, "anthropic") or

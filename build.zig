@@ -64,7 +64,6 @@ pub fn build(b: *std.Build) void {
         .async = true,        // Async runtime for concurrent requests
         .with_brotli = false, // No Brotli needed
         .with_zlib = true,    // Enable gzip compression
-        .quic_backend = "none",
     });
 
     // This creates a module, which represents a collection of source files alongside

@@ -57,37 +57,42 @@ pub const AuthManager = struct {
     }
 
     /// Start Google OAuth flow for Claude Max/ChatGPT Pro
+    /// Get redirect URI with provider-specific override support
+    fn getRedirectUri(provider: []const u8) []const u8 {
+        // Check provider-specific override first
+        if (std.mem.eql(u8, provider, "google")) {
+            if (std.posix.getenv("ZEKE_GOOGLE_REDIRECT_URI")) |uri| return uri;
+        } else if (std.mem.eql(u8, provider, "github")) {
+            if (std.posix.getenv("ZEKE_GITHUB_REDIRECT_URI")) |uri| return uri;
+        } else if (std.mem.eql(u8, provider, "azure")) {
+            if (std.posix.getenv("ZEKE_AZURE_REDIRECT_URI")) |uri| return uri;
+        }
+
+        // Fall back to general redirect URI
+        if (std.posix.getenv("ZEKE_OAUTH_REDIRECT_URI")) |uri| return uri;
+
+        // Default to localhost
+        return "http://localhost:8765/callback";
+    }
+
     pub fn authorizeGoogle(self: *Self) !Credential {
-        const client_id = std.posix.getenv("ZEKE_GOOGLE_CLIENT_ID") orelse {
-            std.log.err("ZEKE_GOOGLE_CLIENT_ID not set.", .{});
-            std.log.err("", .{});
-            std.log.err("To get Google OAuth credentials:", .{});
-            std.log.err("1. Go to https://console.cloud.google.com/apis/credentials", .{});
-            std.log.err("2. Create OAuth 2.0 Client ID", .{});
-            std.log.err("3. Add http://localhost:8765/callback as redirect URI", .{});
-            std.log.err("4. Set ZEKE_GOOGLE_CLIENT_ID and ZEKE_GOOGLE_CLIENT_SECRET", .{});
-            return error.MissingGoogleClientId;
-        };
+        const broker_url = std.posix.getenv("ZEKE_OAUTH_BROKER_URL") orelse "https://auth.cktech.org";
 
-        const client_secret = std.posix.getenv("ZEKE_GOOGLE_CLIENT_SECRET") orelse {
-            std.log.err("ZEKE_GOOGLE_CLIENT_SECRET not set.", .{});
-            return error.MissingGoogleClientSecret;
-        };
-
-        std.log.info("🔐 Starting Google OAuth for Claude Max + ChatGPT Pro...", .{});
+        std.log.info("🔐 Starting Google OAuth...", .{});
+        std.log.info("  Using OAuth broker: {s}", .{broker_url});
         std.log.info("", .{});
 
-        // Start OAuth flow
-        const oauth_result = try self.runGoogleOAuth(client_id, client_secret);
+        // Start OAuth flow via broker
+        const oauth_result = try self.runBrokerOAuth(broker_url, "google");
 
         std.log.info("✅ Google OAuth successful!", .{});
-        std.log.info("  You can now use Claude Max and ChatGPT Pro via Google", .{});
+        std.log.info("  Identity: {s}", .{oauth_result.access_token orelse "unknown"});
 
         return oauth_result;
     }
 
     fn runGoogleOAuth(self: *Self, client_id: []const u8, client_secret: []const u8) !Credential {
-        const redirect_uri = "http://localhost:8765/callback";
+        const redirect_uri = getRedirectUri("google");
         const scope = "openid email profile";
 
         // Build authorization URL
@@ -118,12 +123,19 @@ pub const AuthManager = struct {
 
         // Start callback server
         std.log.info("Waiting for OAuth callback on http://localhost:8765/callback...", .{});
-        const auth_code = try self.waitForOAuthCallback();
+        const callback_result = try self.waitForOAuthCallback();
 
-        std.log.info("Exchanging authorization code for tokens...", .{});
-
-        // Exchange code for tokens
-        const tokens = try self.exchangeCodeForTokens(client_id, client_secret, auth_code, redirect_uri);
+        const tokens = switch (callback_result) {
+            .tokens => |t| blk: {
+                std.log.info("✅ Received tokens directly from OAuth proxy", .{});
+                break :blk t;
+            },
+            .code => |auth_code| blk: {
+                defer self.allocator.free(auth_code);
+                std.log.info("Exchanging authorization code for tokens...", .{});
+                break :blk try self.exchangeCodeForTokens(client_id, client_secret, auth_code, redirect_uri);
+            },
+        };
 
         return Credential{
             .provider = .google,
@@ -143,6 +155,7 @@ pub const AuthManager = struct {
     var oauth_callback_state: ?struct {
         mutex: std.Thread.Mutex,
         code: ?[]const u8,
+        tokens: ?OAuthTokens,
         done: bool,
         allocator: std.mem.Allocator,
     } = null;
@@ -154,7 +167,61 @@ pub const AuthManager = struct {
             return;
         }
 
-        // Parse query parameters from URL
+        // Check if this is a POST request with tokens (from OAuth proxy like Shade)
+        if (req.method == .POST) {
+            // Parse JSON body with tokens
+            if (req.body.len == 0) {
+                res.setStatus(400);
+                try res.send("Missing request body");
+                return;
+            }
+            const body = req.body;
+
+            const parsed = std.json.parseFromSlice(
+                struct {
+                    access_token: []const u8,
+                    refresh_token: ?[]const u8 = null,
+                    expires_in: ?i64 = null,
+                },
+                if (oauth_callback_state) |*state| state.allocator else return error.NoCallbackState,
+                body,
+                .{ .ignore_unknown_fields = true },
+            ) catch {
+                res.setStatus(400);
+                try res.send("Invalid JSON body");
+                return;
+            };
+            defer parsed.deinit();
+
+            const expires_at = if (parsed.value.expires_in) |expires_in|
+                std.time.timestamp() + expires_in
+            else
+                null;
+
+            // Store tokens in global state
+            if (oauth_callback_state) |*state| {
+                state.mutex.lock();
+                defer state.mutex.unlock();
+
+                state.tokens = OAuthTokens{
+                    .access_token = try state.allocator.dupe(u8, parsed.value.access_token),
+                    .refresh_token = if (parsed.value.refresh_token) |rt|
+                        try state.allocator.dupe(u8, rt)
+                    else
+                        null,
+                    .expires_at = expires_at,
+                };
+                state.done = true;
+            }
+
+            // Send success response
+            res.setStatus(200);
+            try res.setHeader("Content-Type", "application/json");
+            try res.send("{\"status\":\"success\"}");
+            return;
+        }
+
+        // Parse query parameters from URL (direct OAuth callback)
         if (std.mem.indexOf(u8, req.path, "?code=")) |idx| {
             const query_start = idx + 6; // Skip "?code="
             const code_end = std.mem.indexOfScalarPos(u8, req.path, query_start, '&') orelse req.path.len;
@@ -207,11 +274,17 @@ pub const AuthManager = struct {
         }
     }
 
-    fn waitForOAuthCallback(self: *Self) ![]const u8 {
+    const OAuthCallbackResult = union(enum) {
+        code: []const u8,
+        tokens: OAuthTokens,
+    };
+
+    fn waitForOAuthCallback(self: *Self) !OAuthCallbackResult {
         // Initialize global state
         oauth_callback_state = .{
             .mutex = .{},
             .code = null,
+            .tokens = null,
             .done = false,
             .allocator = self.allocator,
         };
@@ -241,6 +314,13 @@ pub const AuthManager = struct {
                 };
             }
         }.run, .{ &server, &server_error });
+        var joined = false;
+        defer if (!joined) {
+            if (@hasDecl(@TypeOf(server), "stop")) {
+                server.stop();
+            }
+            listen_thread.join();
+        };
 
         // Wait for callback (with timeout)
         const timeout_ns = 5 * 60 * std.time.ns_per_s; // 5 minutes
@@ -265,7 +345,11 @@ pub const AuthManager = struct {
             }
         }
 
+        if (@hasDecl(@TypeOf(server), "stop")) {
+            server.stop();
+        }
         listen_thread.join();
+        joined = true;
 
         if (server_error) |err| {
             return err;
@@ -275,8 +359,14 @@ pub const AuthManager = struct {
             state.mutex.lock();
             defer state.mutex.unlock();
 
+            // Check if we received tokens directly from OAuth proxy
+            if (state.tokens) |tokens| {
+                return OAuthCallbackResult{ .tokens = tokens };
+            }
+
+            // Check if we received an authorization code
             if (state.code) |code| {
-                return code;
+                return OAuthCallbackResult{ .code = code };
             }
         }
 
@@ -353,16 +443,193 @@ pub const AuthManager = struct {
         };
     }
 
+    /// Broker-based OAuth flow (Shade)
+    fn runBrokerOAuth(self: *Self, broker_url: []const u8, provider: []const u8) !Credential {
+        // Step 1: Call /oauth/start
+        const start_url = try std.fmt.allocPrint(
+            self.allocator,
+            "{s}/oauth/start?provider={s}",
+            .{ broker_url, provider },
+        );
+        defer self.allocator.free(start_url);
+
+        var client = std.http.Client{ .allocator = self.allocator };
+        defer client.deinit();
+
+        var allocating_writer = std.Io.Writer.Allocating.init(self.allocator);
+        const response_data = blk: {
+            errdefer {
+                const slice = allocating_writer.toOwnedSlice() catch &[_]u8{};
+                self.allocator.free(slice);
+            }
+
+            const result = try client.fetch(.{
+                .location = .{ .url = start_url },
+                .method = .GET,
+                .response_writer = &allocating_writer.writer,
+            });
+
+            if (result.status != .ok) {
+                std.log.err("Failed to start OAuth flow: {}", .{result.status});
+                return error.OAuthStartFailed;
+            }
+
+            break :blk try allocating_writer.toOwnedSlice();
+        };
+        defer self.allocator.free(response_data);
+
+        const OAuthStartResponse = struct {
+            state: []const u8,
+            authorize_url: []const u8,
+        };
+
+        const parsed = try std.json.parseFromSlice(
+            OAuthStartResponse,
+            self.allocator,
+            response_data,
+            .{ .ignore_unknown_fields = true },
+        );
+        defer parsed.deinit();
+
+        const state = parsed.value.state;
+        const authorize_url = parsed.value.authorize_url;
+
+        // Step 2: Print URL (clickable in most terminals)
+        std.log.info("", .{});
+        std.debug.print("To authenticate, open this link:\n\n  \x1b[94m\x1b[4m{s}\x1b[0m\n\n", .{authorize_url});
+
+        // Step 3: Poll for completion
+        std.log.info("Waiting for authentication...", .{});
+        return try self.pollBroker(broker_url, state, provider);
+    }
+
+    fn pollBroker(self: *Self, broker_url: []const u8, state: []const u8, provider_name: []const u8) !Credential {
+        const poll_url_template = "{s}/cli/poll?state={s}";
+        const max_attempts = 60; // 5 minutes at 5 second intervals
+        const poll_interval_ns = 5 * std.time.ns_per_s;
+
+        // Convert provider name to enum
+        const provider_enum: AuthProvider = if (std.mem.eql(u8, provider_name, "google"))
+            .google
+        else if (std.mem.eql(u8, provider_name, "github"))
+            .github
+        else
+            .google; // fallback
+
+        var attempt: usize = 0;
+        while (attempt < max_attempts) : (attempt += 1) {
+            std.Thread.sleep(poll_interval_ns);
+
+            const poll_url = try std.fmt.allocPrint(
+                self.allocator,
+                poll_url_template,
+                .{ broker_url, state },
+            );
+            defer self.allocator.free(poll_url);
+
+            var client = std.http.Client{ .allocator = self.allocator };
+            defer client.deinit();  // Always clean up client at end of iteration
+
+            var allocating_writer = std.Io.Writer.Allocating.init(self.allocator);
+            errdefer {
+                const slice = allocating_writer.toOwnedSlice() catch &[_]u8{};
+                self.allocator.free(slice);
+            }
+
+            const result = client.fetch(.{
+                .location = .{ .url = poll_url },
+                .method = .GET,
+                .response_writer = &allocating_writer.writer,
+            }) catch continue;  // Now safe - defer will clean up client
+
+            if (result.status != .ok) continue;  // Now safe - defer will clean up client
+
+            const response_body = allocating_writer.toOwnedSlice() catch continue;
+            defer self.allocator.free(response_body);
+
+            const PollResponse = struct {
+                status: []const u8,
+                access_token: ?[]const u8 = null,
+                refresh_token: ?[]const u8 = null,
+                id_token: ?[]const u8 = null,
+                user_email: ?[]const u8 = null,
+                message: ?[]const u8 = null,
+            };
+
+            const parsed = try std.json.parseFromSlice(
+                PollResponse,
+                self.allocator,
+                response_body,
+                .{ .ignore_unknown_fields = true },
+            );
+            defer parsed.deinit();
+
+            if (std.mem.eql(u8, parsed.value.status, "success")) {
+                std.log.info("✅ Authentication complete for: {s}", .{parsed.value.user_email orelse "unknown"});
+                return Credential{
+                    .provider = provider_enum,
+                    .access_token = if (parsed.value.access_token) |t| try self.allocator.dupe(u8, t) else null,
+                    .refresh_token = if (parsed.value.refresh_token) |t| try self.allocator.dupe(u8, t) else null,
+                    .expires_at = null,
+                };
+            } else if (std.mem.eql(u8, parsed.value.status, "error")) {
+                std.log.err("OAuth error: {s}", .{parsed.value.message orelse "unknown"});
+                return error.OAuthFailed;
+            }
+            // else status == "pending", continue polling
+        }
+
+        std.log.err("OAuth timeout after 5 minutes", .{});
+        return error.OAuthTimeout;
+    }
+
     /// Start GitHub OAuth flow for Copilot Pro
     pub fn authorizeGitHub(self: *Self) !Credential {
+        const broker_url = std.posix.getenv("ZEKE_OAUTH_BROKER_URL") orelse "https://auth.cktech.org";
+
+        std.log.info("🔐 Starting GitHub OAuth...", .{});
+        std.log.info("  Using OAuth broker: {s}", .{broker_url});
+        std.log.info("", .{});
+
+        // Start OAuth flow via broker
+        const oauth_result = try self.runBrokerOAuth(broker_url, "github");
+
+        std.log.info("✅ GitHub OAuth successful!", .{});
+        std.log.info("  Identity: {s}", .{oauth_result.access_token orelse "unknown"});
+
+        return oauth_result;
+    }
+
+    pub fn authenticateGoogle(self: *Self, auth_code: []const u8) !void {
+        const client_id = std.posix.getenv("ZEKE_GOOGLE_CLIENT_ID") orelse {
+            std.log.err("ZEKE_GOOGLE_CLIENT_ID not set.", .{});
+            return error.MissingGoogleClientId;
+        };
+
+        const client_secret = std.posix.getenv("ZEKE_GOOGLE_CLIENT_SECRET") orelse {
+            std.log.err("ZEKE_GOOGLE_CLIENT_SECRET not set.", .{});
+            return error.MissingGoogleClientSecret;
+        };
+
+        const redirect_uri = getRedirectUri("google");
+
+        const tokens = try self.exchangeCodeForTokens(client_id, client_secret, auth_code, redirect_uri);
+        const credential = Credential{
+            .provider = .google,
+            .access_token = tokens.access_token,
+            .refresh_token = tokens.refresh_token,
+            .expires_at = tokens.expires_at,
+        };
+        defer self.freeCredential(credential);
+
+        try self.upsertCredential(credential);
+
+        std.log.info("✅ Google OAuth tokens saved", .{});
+    }
+
+    pub fn authenticateGitHub(self: *Self, code: []const u8) !void {
         const client_id = std.posix.getenv("ZEKE_GITHUB_CLIENT_ID") orelse {
             std.log.err("ZEKE_GITHUB_CLIENT_ID not set.", .{});
-            std.log.err("", .{});
-            std.log.err("To get GitHub OAuth credentials:", .{});
-            std.log.err("1. Go to https://github.com/settings/developers", .{});
-            std.log.err("2. Create a new OAuth App", .{});
-            std.log.err("3. Set callback URL to http://localhost:8765/callback", .{});
-            std.log.err("4. Set ZEKE_GITHUB_CLIENT_ID and ZEKE_GITHUB_CLIENT_SECRET", .{});
             return error.MissingGitHubClientId;
         };
 
@@ -371,20 +638,40 @@ pub const AuthManager = struct {
             return error.MissingGitHubClientSecret;
         };
 
-        std.log.info("🔐 Starting GitHub OAuth for Copilot Pro...", .{});
-        std.log.info("", .{});
+        const redirect_uri = getRedirectUri("github");
 
-        // Start OAuth flow
-        const oauth_result = try self.runGitHubOAuth(client_id, client_secret);
+        const tokens = try self.exchangeGitHubCodeForTokens(client_id, client_secret, code, redirect_uri);
+        const credential = Credential{
+            .provider = .github,
+            .access_token = tokens.access_token,
+            .refresh_token = tokens.refresh_token,
+            .expires_at = tokens.expires_at,
+        };
+        defer self.freeCredential(credential);
 
-        std.log.info("✅ GitHub OAuth successful!", .{});
-        std.log.info("  You can now use GitHub Copilot Pro", .{});
+        try self.upsertCredential(credential);
 
-        return oauth_result;
+        std.log.info("✅ GitHub OAuth tokens saved", .{});
+    }
+
+    pub fn setOpenAIToken(self: *Self, token: []const u8) !void {
+        try self.setApiKey(.openai, token);
+    }
+
+    pub fn freeCredential(self: *Self, credential: Credential) void {
+        if (credential.access_token) |token| {
+            self.allocator.free(token);
+        }
+        if (credential.refresh_token) |token| {
+            self.allocator.free(token);
+        }
+        if (credential.api_key) |key| {
+            self.allocator.free(key);
+        }
     }
 
     fn runGitHubOAuth(self: *Self, client_id: []const u8, client_secret: []const u8) !Credential {
-        const redirect_uri = "http://localhost:8765/callback";
+        const redirect_uri = getRedirectUri("github");
         const scope = "read:user user:email";
 
         // Build authorization URL
@@ -415,12 +702,19 @@ pub const AuthManager = struct {
 
         // Start callback server
         std.log.info("Waiting for OAuth callback on http://localhost:8765/callback...", .{});
-        const auth_code = try self.waitForOAuthCallback();
+        const callback_result = try self.waitForOAuthCallback();
 
-        std.log.info("Exchanging authorization code for tokens...", .{});
-
-        // Exchange code for tokens
-        const tokens = try self.exchangeGitHubCodeForTokens(client_id, client_secret, auth_code, redirect_uri);
+        const tokens = switch (callback_result) {
+            .tokens => |t| blk: {
+                std.log.info("✅ Received tokens directly from OAuth proxy", .{});
+                break :blk t;
+            },
+            .code => |auth_code| blk: {
+                defer self.allocator.free(auth_code);
+                std.log.info("Exchanging authorization code for tokens...", .{});
+                break :blk try self.exchangeGitHubCodeForTokens(client_id, client_secret, auth_code, redirect_uri);
+            },
+        };
 
         return Credential{
             .provider = .github,
@@ -571,8 +865,23 @@ pub const AuthManager = struct {
             content,
             .{ .ignore_unknown_fields = true },
         );
+        defer parsed.deinit();
 
-        return parsed.value;
+        // Duplicate the credentials so we own them after parsed is freed
+        var owned_creds = std.array_list.AlignedManaged(Credential, null).init(self.allocator);
+        errdefer owned_creds.deinit();
+
+        for (parsed.value.credentials) |cred| {
+            try owned_creds.append(.{
+                .provider = cred.provider,
+                .access_token = if (cred.access_token) |t| try self.allocator.dupe(u8, t) else null,
+                .refresh_token = if (cred.refresh_token) |t| try self.allocator.dupe(u8, t) else null,
+                .api_key = if (cred.api_key) |k| try self.allocator.dupe(u8, k) else null,
+                .expires_at = cred.expires_at,
+            });
+        }
+
+        return .{ .credentials = try owned_creds.toOwnedSlice() };
     }
 
     /// Free credentials loaded from file
