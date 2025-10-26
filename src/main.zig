@@ -11,7 +11,7 @@ const git_ops = zeke.git;
 const search = zeke.search;
 
 // Version will be set by build system
-const VERSION = "0.2.9";
+const VERSION = "0.3.0";
 const build_ops = zeke.build;
 
 // Simple command structure for ZEKE AI
@@ -244,6 +244,9 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
             std.debug.print("Usage: zeke search <subcommand>\n", .{});
             std.debug.print("Subcommands: files, content, grep\n", .{});
         }
+    } else if (std.mem.eql(u8, command, "config")) {
+        const config_cli = @import("cli/config.zig");
+        try config_cli.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "build")) {
         if (args.len > 2) {
             try handleBuildCommand(allocator, args[2..]);
@@ -699,13 +702,15 @@ fn handleProviderSwitch(zeke_instance: *zeke.Zeke, provider_str: []const u8) !vo
         zeke.api.ApiProvider.openai
     else if (std.mem.eql(u8, provider_str, "claude"))
         zeke.api.ApiProvider.claude
-    else if (std.mem.eql(u8, provider_str, "copilot"))
-        zeke.api.ApiProvider.copilot
+    else if (std.mem.eql(u8, provider_str, "xai"))
+        zeke.api.ApiProvider.xai
+    else if (std.mem.eql(u8, provider_str, "azure"))
+        zeke.api.ApiProvider.azure
     else if (std.mem.eql(u8, provider_str, "ollama"))
         zeke.api.ApiProvider.ollama
     else {
         std.debug.print("❌ Unknown provider: {s}\n", .{provider_str});
-        std.debug.print("Available providers: openai, claude, copilot, ollama\n", .{});
+        std.debug.print("Available providers: openai, claude, xai, azure, ollama\n", .{});
         return;
     };
 
@@ -742,7 +747,8 @@ fn handleProviderList() !void {
     std.debug.print("📋 Available providers:\n", .{});
     std.debug.print("  • openai - OpenAI GPT models\n", .{});
     std.debug.print("  • claude - Anthropic Claude models\n", .{});
-    std.debug.print("  • copilot - GitHub Copilot\n", .{});
+    std.debug.print("  • xai - xAI Grok models\n", .{});
+    std.debug.print("  • azure - Azure OpenAI\n", .{});
     std.debug.print("  • ollama - Local Ollama instance\n", .{});
 }
 
@@ -1547,10 +1553,10 @@ fn printUsage() !void {
     std.debug.print("  zeke analyze <file> <type>            - Analyze code file\n", .{});
     std.debug.print("\n🔐 Authentication:\n", .{});
     std.debug.print("  zeke auth <provider> <token>          - Authenticate with API key\n", .{});
-    std.debug.print("  zeke auth google                      - Start Google OAuth flow\n", .{});
     std.debug.print("  zeke auth github                      - Start GitHub OAuth flow\n", .{});
     std.debug.print("  zeke auth test <provider>             - Test authentication\n", .{});
     std.debug.print("  zeke auth list                        - List auth providers\n", .{});
+    std.debug.print("    Providers: openai, claude, xai, google, azure, ollama\n", .{});
     std.debug.print("\n🔄 Provider Management:\n", .{});
     std.debug.print("  zeke provider switch <name>           - Switch to provider\n", .{});
     std.debug.print("  zeke provider status                  - Show provider health\n", .{});
@@ -1604,8 +1610,7 @@ fn printUsage() !void {
     std.debug.print("  zeke watch                            - Auto-detect issues with Grove\n", .{});
     std.debug.print("  zeke watch --auto-fix                 - Auto-apply fixes via Ollama\n", .{});
     std.debug.print("  zeke watch --auto-commit              - Auto-commit when tests pass\n", .{});
-    std.debug.print("\n🚀 Providers: claude, openai, copilot, ollama, ghostllm*\n", .{});
-    std.debug.print("📝 * ghostllm integration coming soon (Rust-based service)\n", .{});
+    std.debug.print("\n🚀 Providers: claude, openai, copilot, ollama, xai, google, azure\n", .{});
     std.debug.print("🔍 Analysis: performance, security, style, quality, architecture\n", .{});
     std.debug.print("\n✨ v{s} Features:\n", .{VERSION});
     std.debug.print("  • Multi-provider authentication with OAuth\n", .{});

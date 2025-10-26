@@ -1,0 +1,159 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/api/client.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "ApiProvider",
+      "type": "enum",
+      "file": "src/api/client.zig",
+      "line": 3,
+      "keywords": ["ApiProvider", "enum"]
+    },
+    {
+      "name": "RateLimiter",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 12,
+      "keywords": ["RateLimiter", "struct"]
+    },
+    {
+      "name": "ApiClient",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 55,
+      "keywords": ["ApiClient", "struct"]
+    },
+    {
+      "name": "ChatMessage",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 838,
+      "keywords": ["ChatMessage", "struct"]
+    },
+    {
+      "name": "ChatResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 843,
+      "keywords": ["ChatResponse", "struct"]
+    },
+    {
+      "name": "CompletionResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 854,
+      "keywords": ["CompletionResponse", "struct"]
+    },
+    {
+      "name": "CodeContext",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 865,
+      "keywords": ["CodeContext", "struct"]
+    },
+    {
+      "name": "Usage",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 875,
+      "keywords": ["Usage", "struct"]
+    },
+    {
+      "name": "AnalysisType",
+      "type": "enum",
+      "file": "src/api/client.zig",
+      "line": 882,
+      "keywords": ["AnalysisType", "enum"]
+    },
+    {
+      "name": "RefactorType",
+      "type": "enum",
+      "file": "src/api/client.zig",
+      "line": 890,
+      "keywords": ["RefactorType", "enum"]
+    },
+    {
+      "name": "ProjectContext",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 898,
+      "keywords": ["ProjectContext", "struct"]
+    },
+    {
+      "name": "AnalysisResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 908,
+      "keywords": ["AnalysisResponse", "struct"]
+    },
+    {
+      "name": "ExplanationResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 922,
+      "keywords": ["ExplanationResponse", "struct"]
+    },
+    {
+      "name": "RefactorChange",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 940,
+      "keywords": ["RefactorChange", "struct"]
+    },
+    {
+      "name": "RefactorResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 948,
+      "keywords": ["RefactorResponse", "struct"]
+    },
+    {
+      "name": "TestCase",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 965,
+      "keywords": ["TestCase", "struct"]
+    },
+    {
+      "name": "TestResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 972,
+      "keywords": ["TestResponse", "struct"]
+    },
+    {
+      "name": "ProjectContextResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 994,
+      "keywords": ["ProjectContextResponse", "struct"]
+    },
+    {
+      "name": "CommitMessageResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 1012,
+      "keywords": ["CommitMessageResponse", "struct"]
+    },
+    {
+      "name": "SecurityVulnerability",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 1024,
+      "keywords": ["SecurityVulnerability", "struct"]
+    },
+    {
+      "name": "SecurityScanResponse",
+      "type": "struct",
+      "file": "src/api/client.zig",
+      "line": 1031,
+      "keywords": ["SecurityScanResponse", "struct"]
+    }
+  ]
+}

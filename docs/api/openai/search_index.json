@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/providers/openai.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "HttpClient",
+      "type": "variable",
+      "file": "src/providers/openai.zig",
+      "line": 2,
+      "keywords": ["HttpClient", "variable"]
+    },
+    {
+      "name": "HttpResponse",
+      "type": "variable",
+      "file": "src/providers/openai.zig",
+      "line": 3,
+      "keywords": ["HttpResponse", "variable"]
+    },
+    {
+      "name": "OpenAIProvider",
+      "type": "struct",
+      "file": "src/providers/openai.zig",
+      "line": 5,
+      "keywords": ["OpenAIProvider", "struct"]
+    },
+    {
+      "name": "ChatMessage",
+      "type": "struct",
+      "file": "src/providers/openai.zig",
+      "line": 161,
+      "keywords": ["ChatMessage", "struct"]
+    },
+    {
+      "name": "ChatCompletionResponse",
+      "type": "struct",
+      "file": "src/providers/openai.zig",
+      "line": 166,
+      "keywords": ["ChatCompletionResponse", "struct"]
+    },
+    {
+      "name": "CodeCompletionResponse",
+      "type": "struct",
+      "file": "src/providers/openai.zig",
+      "line": 172,
+      "keywords": ["CodeCompletionResponse", "struct"]
+    },
+    {
+      "name": "Usage",
+      "type": "struct",
+      "file": "src/providers/openai.zig",
+      "line": 178,
+      "keywords": ["Usage", "struct"]
+    },
+    {
+      "name": "StreamChunk",
+      "type": "struct",
+      "file": "src/providers/openai.zig",
+      "line": 184,
+      "keywords": ["StreamChunk", "struct"]
+    },
+    {
+      "name": "StreamCallback",
+      "type": "variable",
+      "file": "src/providers/openai.zig",
+      "line": 190,
+      "keywords": ["StreamCallback", "variable"]
+    },
+    {
+      "name": "ChatCompletionError",
+      "type": "error",
+      "file": "src/providers/openai.zig",
+      "line": 192,
+      "keywords": ["ChatCompletionError", "error"]
+    },
+    {
+      "name": "OpenAIResponse",
+      "type": "struct",
+      "file": "src/providers/openai.zig",
+      "line": 202,
+      "keywords": ["OpenAIResponse", "struct"]
+    }
+  ]
+}

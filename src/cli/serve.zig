@@ -3,7 +3,6 @@ const zeke = @import("zeke");
 const router = zeke.routing;
 const ZhttpServer = zeke.rpc.ZhttpServer;
 const ollama = zeke.providers.ollama;
-const omen = zeke.providers.omen;
 const routing_db = zeke.db;
 
 pub const ServeOptions = struct {
@@ -48,12 +47,7 @@ pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
     };
     defer ollama_provider.deinit();
 
-    var omen_client = omen.fromEnv(allocator) catch |err| {
-        std.log.warn("⚠️  Failed to initialize OMEN: {}", .{err});
-        std.log.warn("  Continuing without OMEN cloud routing", .{});
-        return error.OmenInitFailed;
-    };
-    defer omen_client.deinit();
+    // OMEN cloud routing has been removed in favor of direct provider support
 
     // Initialize routing database
     const db_path = try getDbPath(allocator);
@@ -70,7 +64,7 @@ pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
     var smart_router = router.SmartRouter.init(
         allocator,
         &ollama_provider,
-        &omen_client,
+        // &omen_client, // REMOVED: OMEN cloud routing
         &db,
         router.RoutingConfig{},
     );

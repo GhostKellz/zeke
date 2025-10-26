@@ -500,21 +500,13 @@ pub const AuthManager = struct {
 
         // Step 3: Poll for completion
         std.log.info("Waiting for authentication...", .{});
-        return try self.pollBroker(broker_url, state, provider);
+        return try self.pollBroker(broker_url, state);
     }
 
-    fn pollBroker(self: *Self, broker_url: []const u8, state: []const u8, provider_name: []const u8) !Credential {
+    fn pollBroker(self: *Self, broker_url: []const u8, state: []const u8) !Credential {
         const poll_url_template = "{s}/cli/poll?state={s}";
         const max_attempts = 60; // 5 minutes at 5 second intervals
         const poll_interval_ns = 5 * std.time.ns_per_s;
-
-        // Convert provider name to enum
-        const provider_enum: AuthProvider = if (std.mem.eql(u8, provider_name, "google"))
-            .google
-        else if (std.mem.eql(u8, provider_name, "github"))
-            .github
-        else
-            .google; // fallback
 
         var attempt: usize = 0;
         while (attempt < max_attempts) : (attempt += 1) {
@@ -528,24 +520,31 @@ pub const AuthManager = struct {
             defer self.allocator.free(poll_url);
 
             var client = std.http.Client{ .allocator = self.allocator };
-            defer client.deinit();  // Always clean up client at end of iteration
 
             var allocating_writer = std.Io.Writer.Allocating.init(self.allocator);
-            errdefer {
-                const slice = allocating_writer.toOwnedSlice() catch &[_]u8{};
-                self.allocator.free(slice);
+            const response_body = blk: {
+                errdefer {
+                    const slice = allocating_writer.toOwnedSlice() catch &[_]u8{};
+                    self.allocator.free(slice);
+                }
+
+                const result = client.fetch(.{
+                    .location = .{ .url = poll_url },
+                    .method = .GET,
+                    .response_writer = &allocating_writer.writer,
+                }) catch continue;
+
+                if (result.status != .ok) continue;
+
+                break :blk allocating_writer.toOwnedSlice() catch {
+                    client.deinit();
+                    continue;
+                };
+            };
+            defer {
+                self.allocator.free(response_body);
+                client.deinit();
             }
-
-            const result = client.fetch(.{
-                .location = .{ .url = poll_url },
-                .method = .GET,
-                .response_writer = &allocating_writer.writer,
-            }) catch continue;  // Now safe - defer will clean up client
-
-            if (result.status != .ok) continue;  // Now safe - defer will clean up client
-
-            const response_body = allocating_writer.toOwnedSlice() catch continue;
-            defer self.allocator.free(response_body);
 
             const PollResponse = struct {
                 status: []const u8,
@@ -567,7 +566,7 @@ pub const AuthManager = struct {
             if (std.mem.eql(u8, parsed.value.status, "success")) {
                 std.log.info("✅ Authentication complete for: {s}", .{parsed.value.user_email orelse "unknown"});
                 return Credential{
-                    .provider = provider_enum,
+                    .provider = .google,
                     .access_token = if (parsed.value.access_token) |t| try self.allocator.dupe(u8, t) else null,
                     .refresh_token = if (parsed.value.refresh_token) |t| try self.allocator.dupe(u8, t) else null,
                     .expires_at = null,
@@ -585,17 +584,35 @@ pub const AuthManager = struct {
 
     /// Start GitHub OAuth flow for Copilot Pro
     pub fn authorizeGitHub(self: *Self) !Credential {
-        const broker_url = std.posix.getenv("ZEKE_OAUTH_BROKER_URL") orelse "https://auth.cktech.org";
+        const redirect_uri = getRedirectUri("github");
 
-        std.log.info("🔐 Starting GitHub OAuth...", .{});
-        std.log.info("  Using OAuth broker: {s}", .{broker_url});
+        const client_id = std.posix.getenv("ZEKE_GITHUB_CLIENT_ID") orelse {
+            std.log.err("ZEKE_GITHUB_CLIENT_ID not set.", .{});
+            std.log.err("", .{});
+            std.log.err("To get GitHub OAuth credentials:", .{});
+            std.log.err("1. Go to https://github.com/settings/developers", .{});
+            std.log.err("2. Create a new OAuth App", .{});
+            std.log.err("3. Set callback URL to: {s}", .{redirect_uri});
+            std.log.err("4. Set ZEKE_GITHUB_CLIENT_ID and ZEKE_GITHUB_CLIENT_SECRET", .{});
+            std.log.err("", .{});
+            std.log.err("Optional: Set ZEKE_GITHUB_REDIRECT_URI or ZEKE_OAUTH_REDIRECT_URI to use a custom OAuth proxy", .{});
+            return error.MissingGitHubClientId;
+        };
+
+        const client_secret = std.posix.getenv("ZEKE_GITHUB_CLIENT_SECRET") orelse {
+            std.log.err("ZEKE_GITHUB_CLIENT_SECRET not set.", .{});
+            return error.MissingGitHubClientSecret;
+        };
+
+        std.log.info("🔐 Starting GitHub OAuth for Copilot Pro...", .{});
+        std.log.info("  Redirect URI: {s}", .{redirect_uri});
         std.log.info("", .{});
 
-        // Start OAuth flow via broker
-        const oauth_result = try self.runBrokerOAuth(broker_url, "github");
+        // Start OAuth flow
+        const oauth_result = try self.runGitHubOAuth(client_id, client_secret);
 
         std.log.info("✅ GitHub OAuth successful!", .{});
-        std.log.info("  Identity: {s}", .{oauth_result.access_token orelse "unknown"});
+        std.log.info("  You can now use GitHub Copilot Pro", .{});
 
         return oauth_result;
     }

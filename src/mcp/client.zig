@@ -396,6 +396,10 @@ pub const McpClient = struct {
             .websocket => |ws_cfg| Transport{
                 .websocket = try WebSocketTransport.init(allocator, ws_cfg.url),
             },
+            .docker => |_| {
+                std.log.err("Docker transport not yet implemented", .{});
+                return error.DockerTransportNotImplemented;
+            },
         };
 
         return Self{

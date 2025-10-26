@@ -1,11 +1,12 @@
 const std = @import("std");
 
 pub const ApiProvider = enum {
-    copilot,
-    claude,
-    openai,
-    ollama,
-    ghostllm,
+    claude, // Anthropic Claude
+    openai, // OpenAI GPT
+    azure, // Azure OpenAI
+    xai, // xAI/Grok
+    google, // Google Gemini
+    ollama, // Local Ollama (Docker or custom host)
 };
 
 // Rate limiter for API calls
@@ -65,11 +66,12 @@ pub const ApiClient = struct {
 
     pub fn init(allocator: std.mem.Allocator, provider: ApiProvider) !Self {
         const base_url = switch (provider) {
-            .copilot => "https://api.githubcopilot.com",
             .claude => "https://api.anthropic.com",
             .openai => "https://api.openai.com",
+            .azure => "https://YOUR_RESOURCE.openai.azure.com", // User must configure
+            .xai => "https://api.x.ai",
+            .google => "https://generativelanguage.googleapis.com",
             .ollama => "http://localhost:11434",
-            .ghostllm => "https://api.ghostllm.com",
         };
 
         // Initialize async runtime (placeholder)
@@ -584,9 +586,10 @@ pub const ApiClient = struct {
             auth_header = switch (self.provider) {
                 .openai => try std.fmt.bufPrint(&auth_header_buf, "Bearer {s}", .{token}),
                 .claude => try std.fmt.bufPrint(&auth_header_buf, "x-api-key: {s}", .{token}),
-                .copilot => try std.fmt.bufPrint(&auth_header_buf, "Authorization: Bearer {s}", .{token}),
-                .ollama => null, // Ollama typically doesn't need auth
-                .ghostllm => try std.fmt.bufPrint(&auth_header_buf, "Bearer {s}", .{token}),
+                .azure => try std.fmt.bufPrint(&auth_header_buf, "api-key: {s}", .{token}),
+                .xai => try std.fmt.bufPrint(&auth_header_buf, "Bearer {s}", .{token}),
+                .google => null, // Google uses API key in URL parameter
+                .ollama => null, // Ollama doesn't need auth
             };
         }
 

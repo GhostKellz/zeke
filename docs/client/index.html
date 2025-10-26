@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zdoc Documentation</title>
+<style>
+body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+h1 {{ color: #333; margin: 0 0 20px 0; }}
+h2 {{ color: #666; border-bottom: 1px solid #ddd; margin: 30px 0 15px 0; }}
+.container {{ display: flex; min-height: 100vh; }}
+.sidebar {{ width: 250px; background: #f8f9fa; border-right: 1px solid #ddd; padding: 20px; overflow-y: auto; }}
+.content {{ flex: 1; padding: 40px; }}
+.nav-section {{ margin-bottom: 20px; }}
+.nav-title {{ font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; font-size: 0.9em; }}
+.nav-item {{ display: block; color: #007acc; text-decoration: none; padding: 4px 8px; border-radius: 3px; margin-bottom: 2px; }}
+.nav-item:hover {{ background: #e9ecef; }}
+.nav-function {{ border-left: 3px solid #28a745; }}
+.nav-struct {{ border-left: 3px solid #dc3545; }}
+.nav-enum {{ border-left: 3px solid #ffc107; }}
+.nav-union {{ border-left: 3px solid #17a2b8; }}
+.nav-variable {{ border-left: 3px solid #6c757d; }}
+.declaration {{ margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 3px solid #007acc; }}
+.function {{ border-left-color: #28a745; }}
+.struct {{ border-left-color: #dc3545; }}
+.enum {{ border-left-color: #ffc107; }}
+.union {{ border-left-color: #17a2b8; }}
+.variable {{ border-left-color: #6c757d; }}
+.name {{ font-weight: bold; }}
+.kind {{ color: #666; font-size: 0.8em; text-transform: uppercase; }}
+.signature {{ font-family: monospace; color: #333; }}
+.doc-comment {{ color: #555; font-style: italic; margin-top: 5px; padding: 5px; background: #f0f0f0; border-radius: 3px; }}
+.code-block {{ background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 10px 0; overflow-x: auto; }}
+.code-block code {{ background: none; padding: 0; }}
+.zig-keyword {{ color: #0066cc; font-weight: bold; }}
+.zig-string {{ color: #008800; }}
+.zig-number {{ color: #aa6600; }}
+.zig-comment {{ color: #888888; font-style: italic; }}
+.zig-type {{ color: #0088aa; font-weight: bold; }}
+.zig-function {{ color: #7700aa; }}
+.generic-indicator {{ color: #cc6600; font-weight: bold; font-style: italic; }}
+.badge {{ display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.75em; font-weight: bold; margin-left: 5px; }}
+.badge-pub {{ background: #28a745; color: white; }}
+.badge-export {{ background: #007acc; color: white; }}
+.badge-extern {{ background: #6c757d; color: white; }}
+.badge-generic {{ background: #cc6600; color: white; }}
+.params-section {{ margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }}
+.params-title {{ font-weight: bold; color: #555; margin-bottom: 5px; }}
+.param-item {{ margin: 5px 0 5px 15px; font-family: monospace; }}
+.param-name {{ color: #0066cc; font-weight: bold; }}
+.param-type {{ color: #0088aa; }}
+.return-section {{ margin: 10px 0; padding: 8px; background: #e9f7ef; border-left: 3px solid #28a745; }}
+.error-section {{ margin: 10px 0; padding: 8px; background: #fff3cd; border-left: 3px solid #ffc107; }}
+.fields-table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
+.fields-table th {{ background: #e9ecef; padding: 8px; text-align: left; border: 1px solid #ddd; }}
+.fields-table td {{ padding: 8px; border: 1px solid #ddd; font-family: monospace; }}
+.source-link {{ display: inline-block; margin-top: 5px; font-size: 0.85em; color: #007acc; text-decoration: none; }}
+.source-link:hover {{ text-decoration: underline; }}
+.doc-tags {{ margin: 10px 0; }}
+.doc-tag {{ margin: 5px 0; padding: 5px; background: #f0f4f8; border-left: 2px solid #007acc; }}
+.doc-tag-label {{ font-weight: bold; color: #007acc; }}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {{
+  .container {{ flex-direction: column; }}
+  .sidebar {{ width: 100%; border-right: none; border-bottom: 1px solid #ddd; padding: 15px; }}
+  .content {{ padding: 20px; }}
+  .nav-section {{ display: inline-block; margin-right: 20px; vertical-align: top; }}
+  .nav-title {{ margin-bottom: 5px; }}
+  .nav-item {{ display: inline-block; margin-right: 10px; margin-bottom: 5px; }}
+  h1 {{ font-size: 1.8em; }}
+  h2 {{ font-size: 1.4em; }}
+  .declaration {{ margin: 8px 0; padding: 8px; }}
+}}
+
+@media (max-width: 480px) {{
+  .content {{ padding: 15px; }}
+  .sidebar {{ padding: 10px; }}
+  h1 {{ font-size: 1.6em; }}
+  h2 {{ font-size: 1.2em; }}
+  .nav-section {{ display: block; margin-bottom: 15px; }}
+  .declaration {{ margin: 6px 0; padding: 6px; }}
+}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="sidebar">
+<h3>Navigation</h3>
+<div style="margin-bottom: 15px;">
+<input type="text" id="search" placeholder="Search declarations..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+</div>
+<div class="nav-section">
+<div class="nav-title">Structs</div><a href="#RateLimiter" class="nav-item nav-struct">RateLimiter</a><a href="#ApiClient" class="nav-item nav-struct">ApiClient</a><a href="#ChatMessage" class="nav-item nav-struct">ChatMessage</a><a href="#ChatResponse" class="nav-item nav-struct">ChatResponse</a><a href="#CompletionResponse" class="nav-item nav-struct">CompletionResponse</a><a href="#CodeContext" class="nav-item nav-struct">CodeContext</a><a href="#Usage" class="nav-item nav-struct">Usage</a><a href="#ProjectContext" class="nav-item nav-struct">ProjectContext</a><a href="#AnalysisResponse" class="nav-item nav-struct">AnalysisResponse</a><a href="#ExplanationResponse" class="nav-item nav-struct">ExplanationResponse</a><a href="#RefactorChange" class="nav-item nav-struct">RefactorChange</a><a href="#RefactorResponse" class="nav-item nav-struct">RefactorResponse</a><a href="#TestCase" class="nav-item nav-struct">TestCase</a><a href="#TestResponse" class="nav-item nav-struct">TestResponse</a><a href="#ProjectContextResponse" class="nav-item nav-struct">ProjectContextResponse</a><a href="#CommitMessageResponse" class="nav-item nav-struct">CommitMessageResponse</a><a href="#SecurityVulnerability" class="nav-item nav-struct">SecurityVulnerability</a><a href="#SecurityScanResponse" class="nav-item nav-struct">SecurityScanResponse</a></div>
+<div class="nav-section">
+<div class="nav-title">Enums</div><a href="#ApiProvider" class="nav-item nav-enum">ApiProvider</a><a href="#AnalysisType" class="nav-item nav-enum">AnalysisType</a><a href="#RefactorType" class="nav-item nav-enum">RefactorType</a></div>
+<div class="nav-section">
+<div class="nav-title">Variables</div><a href="#std" class="nav-item nav-variable">std</a></div>
+</div>
+<div class="content">
+<h1>API Documentation for src/api/client.zig</h1><h2>Structs</h2>
+<div class="declaration struct" id="RateLimiter">
+<span class="name">RateLimiter</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L12" class="source-link" target="_blank">🔗 client.zig:12</a></div>
+<div class="declaration struct" id="ApiClient">
+<span class="name">ApiClient</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L55" class="source-link" target="_blank">🔗 client.zig:55</a></div>
+<div class="declaration struct" id="ChatMessage">
+<span class="name">ChatMessage</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L838" class="source-link" target="_blank">🔗 client.zig:838</a></div>
+<div class="declaration struct" id="ChatResponse">
+<span class="name">ChatResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L843" class="source-link" target="_blank">🔗 client.zig:843</a></div>
+<div class="declaration struct" id="CompletionResponse">
+<span class="name">CompletionResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L854" class="source-link" target="_blank">🔗 client.zig:854</a></div>
+<div class="declaration struct" id="CodeContext">
+<span class="name">CodeContext</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L865" class="source-link" target="_blank">🔗 client.zig:865</a></div>
+<div class="declaration struct" id="Usage">
+<span class="name">Usage</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L875" class="source-link" target="_blank">🔗 client.zig:875</a></div>
+<div class="declaration struct" id="ProjectContext">
+<span class="name">ProjectContext</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L898" class="source-link" target="_blank">🔗 client.zig:898</a></div>
+<div class="declaration struct" id="AnalysisResponse">
+<span class="name">AnalysisResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L908" class="source-link" target="_blank">🔗 client.zig:908</a></div>
+<div class="declaration struct" id="ExplanationResponse">
+<span class="name">ExplanationResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L922" class="source-link" target="_blank">🔗 client.zig:922</a></div>
+<div class="declaration struct" id="RefactorChange">
+<span class="name">RefactorChange</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L940" class="source-link" target="_blank">🔗 client.zig:940</a></div>
+<div class="declaration struct" id="RefactorResponse">
+<span class="name">RefactorResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L948" class="source-link" target="_blank">🔗 client.zig:948</a></div>
+<div class="declaration struct" id="TestCase">
+<span class="name">TestCase</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L965" class="source-link" target="_blank">🔗 client.zig:965</a></div>
+<div class="declaration struct" id="TestResponse">
+<span class="name">TestResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L972" class="source-link" target="_blank">🔗 client.zig:972</a></div>
+<div class="declaration struct" id="ProjectContextResponse">
+<span class="name">ProjectContextResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L994" class="source-link" target="_blank">🔗 client.zig:994</a></div>
+<div class="declaration struct" id="CommitMessageResponse">
+<span class="name">CommitMessageResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L1012" class="source-link" target="_blank">🔗 client.zig:1012</a></div>
+<div class="declaration struct" id="SecurityVulnerability">
+<span class="name">SecurityVulnerability</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L1024" class="source-link" target="_blank">🔗 client.zig:1024</a></div>
+<div class="declaration struct" id="SecurityScanResponse">
+<span class="name">SecurityScanResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L1031" class="source-link" target="_blank">🔗 client.zig:1031</a></div>
+<h2>Enums</h2>
+<div class="declaration enum" id="ApiProvider">
+<span class="name">ApiProvider</span> <span class="kind">Enums</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L3" class="source-link" target="_blank">🔗 client.zig:3</a></div>
+<div class="declaration enum" id="AnalysisType">
+<span class="name">AnalysisType</span> <span class="kind">Enums</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L882" class="source-link" target="_blank">🔗 client.zig:882</a></div>
+<div class="declaration enum" id="RefactorType">
+<span class="name">RefactorType</span> <span class="kind">Enums</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L890" class="source-link" target="_blank">🔗 client.zig:890</a></div>
+<h2>Variables</h2>
+<div class="declaration variable" id="std">
+<span class="name">std</span> <span class="kind">Variables</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/api/client.zig#L1" class="source-link" target="_blank">🔗 client.zig:1</a></div>
+</div>
+</div>
+<script>
+document.getElementById('search').addEventListener('input', function(e) {
+  const query = e.target.value.toLowerCase();
+  const navItems = document.querySelectorAll('.nav-item');
+  const declarations = document.querySelectorAll('.declaration');
+  const sections = document.querySelectorAll('.nav-section');
+
+  navItems.forEach(function(item) {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(query) ? 'block' : 'none';
+  });
+
+  declarations.forEach(function(decl) {
+    const name = decl.querySelector('.name').textContent.toLowerCase();
+    decl.style.display = name.includes(query) ? 'block' : 'none';
+  });
+
+  sections.forEach(function(section) {
+    const visibleItems = section.querySelectorAll('.nav-item[style*="block"], .nav-item:not([style])');
+    section.style.display = (query === '' || visibleItems.length > 0) ? 'block' : 'none';
+  });
+});
+
+// Syntax highlighting for Zig code
+function highlightZig(code) {
+  const keywords = ['const', 'var', 'pub', 'fn', 'struct', 'enum', 'union', 'if', 'else', 'while', 'for', 'return', 'try', 'catch', 'defer', 'errdefer', 'switch', 'and', 'or', 'null', 'undefined', 'true', 'false', 'test', 'comptime', 'inline', 'export', 'extern', 'packed', 'align', 'volatile', 'allowzero', 'async', 'await', 'suspend', 'resume', 'cancel'];
+  const types = ['u8', 'u16', 'u32', 'u64', 'i8', 'i16', 'i32', 'i64', 'f32', 'f64', 'bool', 'usize', 'isize', 'c_short', 'c_ushort', 'c_int', 'c_uint', 'c_long', 'c_ulong', 'c_longlong', 'c_ulonglong', 'c_longdouble', 'c_void', 'void', 'noreturn', 'type', 'anyerror', 'anyframe', 'anytype'];
+
+  let result = code;
+
+  // Highlight strings
+  result = result.replace(/"([^"\\\\]|\\\\.)*"/g, '<span class="zig-string">$&</span>');
+  result = result.replace(/'([^'\\\\]|\\\\.)'/g, '<span class="zig-string">$&</span>');
+
+  // Highlight numbers
+  result = result.replace(/\\b\\d+(\\.\\d+)?\\b/g, '<span class="zig-number">$&</span>');
+
+  // Highlight comments
+  result = result.replace(/\\/\\/.*$/gm, '<span class="zig-comment">$&</span>');
+
+  // Highlight keywords
+  keywords.forEach(function(keyword) {
+    const regex = new RegExp('\\\\b' + keyword + '\\\\b', 'g');
+    result = result.replace(regex, '<span class="zig-keyword">' + keyword + '</span>');
+  });
+
+  // Highlight types
+  types.forEach(function(type) {
+    const regex = new RegExp('\\\\b' + type + '\\\\b', 'g');
+    result = result.replace(regex, '<span class="zig-type">' + type + '</span>');
+  });
+
+  return result;
+}
+
+// Apply syntax highlighting on page load
+document.addEventListener('DOMContentLoaded', function() {
+  const codeBlocks = document.querySelectorAll('code');
+  codeBlocks.forEach(function(block) {
+    if (block.textContent.includes('const') || block.textContent.includes('fn') || block.textContent.includes('pub')) {
+      block.innerHTML = highlightZig(block.textContent);
+    }
+  });
+});
+</script>
+</body>
+</html>

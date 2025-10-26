@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/providers/ollama.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "http_client",
+      "type": "variable",
+      "file": "src/providers/ollama.zig",
+      "line": 2,
+      "keywords": ["http_client", "variable"]
+    },
+    {
+      "name": "OllamaModel",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 5,
+      "keywords": ["OllamaModel", "struct"]
+    },
+    {
+      "name": "OllamaTagsResponse",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 21,
+      "keywords": ["OllamaTagsResponse", "struct"]
+    },
+    {
+      "name": "OllamaChatMessage",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 25,
+      "keywords": ["OllamaChatMessage", "struct"]
+    },
+    {
+      "name": "OllamaChatRequest",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 30,
+      "keywords": ["OllamaChatRequest", "struct"]
+    },
+    {
+      "name": "OllamaChatResponse",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 41,
+      "keywords": ["OllamaChatResponse", "struct"]
+    },
+    {
+      "name": "OllamaGenerateRequest",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 53,
+      "keywords": ["OllamaGenerateRequest", "struct"]
+    },
+    {
+      "name": "OllamaGenerateResponse",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 65,
+      "keywords": ["OllamaGenerateResponse", "struct"]
+    },
+    {
+      "name": "OllamaProvider",
+      "type": "struct",
+      "file": "src/providers/ollama.zig",
+      "line": 79,
+      "keywords": ["OllamaProvider", "struct"]
+    },
+    {
+      "name": "fromEnv",
+      "type": "function",
+      "file": "src/providers/ollama.zig",
+      "line": 271,
+      "signature": "fn() OllamaProvider",
+      "keywords": ["fromEnv", "function"]
+    },
+    {
+      "name": "testOllama",
+      "type": "function",
+      "file": "src/providers/ollama.zig",
+      "line": 277,
+      "signature": "fn() void",
+      "keywords": ["testOllama", "function"]
+    }
+  ]
+}

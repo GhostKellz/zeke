@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/config/mod.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "ModelConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 3,
+      "keywords": ["ModelConfig", "struct"]
+    },
+    {
+      "name": "KeybindingConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 13,
+      "keywords": ["KeybindingConfig", "struct"]
+    },
+    {
+      "name": "ProviderEndpointConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 23,
+      "keywords": ["ProviderEndpointConfig", "struct"]
+    },
+    {
+      "name": "McpTransport",
+      "type": "union",
+      "file": "src/config/mod.zig",
+      "line": 33,
+      "keywords": ["McpTransport", "union"]
+    },
+    {
+      "name": "ServiceConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 48,
+      "keywords": ["ServiceConfig", "struct"]
+    },
+    {
+      "name": "ModelAliasConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 71,
+      "keywords": ["ModelAliasConfig", "struct"]
+    },
+    {
+      "name": "OAuthConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 78,
+      "keywords": ["OAuthConfig", "struct"]
+    },
+    {
+      "name": "StreamingConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 86,
+      "keywords": ["StreamingConfig", "struct"]
+    },
+    {
+      "name": "RealTimeConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 94,
+      "keywords": ["RealTimeConfig", "struct"]
+    },
+    {
+      "name": "ProviderPreferencesConfig",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 102,
+      "keywords": ["ProviderPreferencesConfig", "struct"]
+    },
+    {
+      "name": "Config",
+      "type": "struct",
+      "file": "src/config/mod.zig",
+      "line": 110,
+      "keywords": ["Config", "struct"]
+    },
+    {
+      "name": "getConfigPath",
+      "type": "function",
+      "file": "src/config/mod.zig",
+      "line": 529,
+      "signature": "fn() [",
+      "keywords": ["getConfigPath", "function"]
+    },
+    {
+      "name": "loadConfig",
+      "type": "function",
+      "file": "src/config/mod.zig",
+      "line": 539,
+      "signature": "fn() Config",
+      "keywords": ["loadConfig", "function"]
+    }
+  ]
+}

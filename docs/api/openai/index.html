@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zdoc Documentation</title>
+<style>
+body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+h1 {{ color: #333; margin: 0 0 20px 0; }}
+h2 {{ color: #666; border-bottom: 1px solid #ddd; margin: 30px 0 15px 0; }}
+.container {{ display: flex; min-height: 100vh; }}
+.sidebar {{ width: 250px; background: #f8f9fa; border-right: 1px solid #ddd; padding: 20px; overflow-y: auto; }}
+.content {{ flex: 1; padding: 40px; }}
+.nav-section {{ margin-bottom: 20px; }}
+.nav-title {{ font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; font-size: 0.9em; }}
+.nav-item {{ display: block; color: #007acc; text-decoration: none; padding: 4px 8px; border-radius: 3px; margin-bottom: 2px; }}
+.nav-item:hover {{ background: #e9ecef; }}
+.nav-function {{ border-left: 3px solid #28a745; }}
+.nav-struct {{ border-left: 3px solid #dc3545; }}
+.nav-enum {{ border-left: 3px solid #ffc107; }}
+.nav-union {{ border-left: 3px solid #17a2b8; }}
+.nav-variable {{ border-left: 3px solid #6c757d; }}
+.declaration {{ margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 3px solid #007acc; }}
+.function {{ border-left-color: #28a745; }}
+.struct {{ border-left-color: #dc3545; }}
+.enum {{ border-left-color: #ffc107; }}
+.union {{ border-left-color: #17a2b8; }}
+.variable {{ border-left-color: #6c757d; }}
+.name {{ font-weight: bold; }}
+.kind {{ color: #666; font-size: 0.8em; text-transform: uppercase; }}
+.signature {{ font-family: monospace; color: #333; }}
+.doc-comment {{ color: #555; font-style: italic; margin-top: 5px; padding: 5px; background: #f0f0f0; border-radius: 3px; }}
+.code-block {{ background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 10px 0; overflow-x: auto; }}
+.code-block code {{ background: none; padding: 0; }}
+.zig-keyword {{ color: #0066cc; font-weight: bold; }}
+.zig-string {{ color: #008800; }}
+.zig-number {{ color: #aa6600; }}
+.zig-comment {{ color: #888888; font-style: italic; }}
+.zig-type {{ color: #0088aa; font-weight: bold; }}
+.zig-function {{ color: #7700aa; }}
+.generic-indicator {{ color: #cc6600; font-weight: bold; font-style: italic; }}
+.badge {{ display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.75em; font-weight: bold; margin-left: 5px; }}
+.badge-pub {{ background: #28a745; color: white; }}
+.badge-export {{ background: #007acc; color: white; }}
+.badge-extern {{ background: #6c757d; color: white; }}
+.badge-generic {{ background: #cc6600; color: white; }}
+.params-section {{ margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }}
+.params-title {{ font-weight: bold; color: #555; margin-bottom: 5px; }}
+.param-item {{ margin: 5px 0 5px 15px; font-family: monospace; }}
+.param-name {{ color: #0066cc; font-weight: bold; }}
+.param-type {{ color: #0088aa; }}
+.return-section {{ margin: 10px 0; padding: 8px; background: #e9f7ef; border-left: 3px solid #28a745; }}
+.error-section {{ margin: 10px 0; padding: 8px; background: #fff3cd; border-left: 3px solid #ffc107; }}
+.fields-table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
+.fields-table th {{ background: #e9ecef; padding: 8px; text-align: left; border: 1px solid #ddd; }}
+.fields-table td {{ padding: 8px; border: 1px solid #ddd; font-family: monospace; }}
+.source-link {{ display: inline-block; margin-top: 5px; font-size: 0.85em; color: #007acc; text-decoration: none; }}
+.source-link:hover {{ text-decoration: underline; }}
+.doc-tags {{ margin: 10px 0; }}
+.doc-tag {{ margin: 5px 0; padding: 5px; background: #f0f4f8; border-left: 2px solid #007acc; }}
+.doc-tag-label {{ font-weight: bold; color: #007acc; }}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {{
+  .container {{ flex-direction: column; }}
+  .sidebar {{ width: 100%; border-right: none; border-bottom: 1px solid #ddd; padding: 15px; }}
+  .content {{ padding: 20px; }}
+  .nav-section {{ display: inline-block; margin-right: 20px; vertical-align: top; }}
+  .nav-title {{ margin-bottom: 5px; }}
+  .nav-item {{ display: inline-block; margin-right: 10px; margin-bottom: 5px; }}
+  h1 {{ font-size: 1.8em; }}
+  h2 {{ font-size: 1.4em; }}
+  .declaration {{ margin: 8px 0; padding: 8px; }}
+}}
+
+@media (max-width: 480px) {{
+  .content {{ padding: 15px; }}
+  .sidebar {{ padding: 10px; }}
+  h1 {{ font-size: 1.6em; }}
+  h2 {{ font-size: 1.2em; }}
+  .nav-section {{ display: block; margin-bottom: 15px; }}
+  .declaration {{ margin: 6px 0; padding: 6px; }}
+}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="sidebar">
+<h3>Navigation</h3>
+<div style="margin-bottom: 15px;">
+<input type="text" id="search" placeholder="Search declarations..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+</div>
+<div class="nav-section">
+<div class="nav-title">Structs</div><a href="#OpenAIProvider" class="nav-item nav-struct">OpenAIProvider</a><a href="#ChatMessage" class="nav-item nav-struct">ChatMessage</a><a href="#ChatCompletionResponse" class="nav-item nav-struct">ChatCompletionResponse</a><a href="#CodeCompletionResponse" class="nav-item nav-struct">CodeCompletionResponse</a><a href="#Usage" class="nav-item nav-struct">Usage</a><a href="#StreamChunk" class="nav-item nav-struct">StreamChunk</a><a href="#OpenAIResponse" class="nav-item nav-struct">OpenAIResponse</a></div>
+<div class="nav-section">
+<div class="nav-title">Error Sets</div><a href="#ChatCompletionError" class="nav-item nav-error">ChatCompletionError</a></div>
+<div class="nav-section">
+<div class="nav-title">Variables</div><a href="#std" class="nav-item nav-variable">std</a><a href="#HttpClient" class="nav-item nav-variable">HttpClient</a><a href="#HttpResponse" class="nav-item nav-variable">HttpResponse</a><a href="#StreamCallback" class="nav-item nav-variable">StreamCallback</a></div>
+</div>
+<div class="content">
+<h1>API Documentation for src/providers/openai.zig</h1><h2>Structs</h2>
+<div class="declaration struct" id="OpenAIProvider">
+<span class="name">OpenAIProvider</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L5" class="source-link" target="_blank">🔗 openai.zig:5</a></div>
+<div class="declaration struct" id="ChatMessage">
+<span class="name">ChatMessage</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L161" class="source-link" target="_blank">🔗 openai.zig:161</a></div>
+<div class="declaration struct" id="ChatCompletionResponse">
+<span class="name">ChatCompletionResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L166" class="source-link" target="_blank">🔗 openai.zig:166</a></div>
+<div class="declaration struct" id="CodeCompletionResponse">
+<span class="name">CodeCompletionResponse</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L172" class="source-link" target="_blank">🔗 openai.zig:172</a></div>
+<div class="declaration struct" id="Usage">
+<span class="name">Usage</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L178" class="source-link" target="_blank">🔗 openai.zig:178</a></div>
+<div class="declaration struct" id="StreamChunk">
+<span class="name">StreamChunk</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L184" class="source-link" target="_blank">🔗 openai.zig:184</a></div>
+<div class="declaration struct" id="OpenAIResponse">
+<span class="name">OpenAIResponse</span> <span class="kind">Structs</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L202" class="source-link" target="_blank">🔗 openai.zig:202</a></div>
+<h2>Error Sets</h2>
+<div class="declaration error-set" id="ChatCompletionError">
+<span class="name">ChatCompletionError</span> <span class="kind">Error Sets</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L192" class="source-link" target="_blank">🔗 openai.zig:192</a></div>
+<h2>Variables</h2>
+<div class="declaration variable" id="std">
+<span class="name">std</span> <span class="kind">Variables</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L1" class="source-link" target="_blank">🔗 openai.zig:1</a></div>
+<div class="declaration variable" id="HttpClient">
+<span class="name">HttpClient</span> <span class="kind">Variables</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L2" class="source-link" target="_blank">🔗 openai.zig:2</a></div>
+<div class="declaration variable" id="HttpResponse">
+<span class="name">HttpResponse</span> <span class="kind">Variables</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L3" class="source-link" target="_blank">🔗 openai.zig:3</a></div>
+<div class="declaration variable" id="StreamCallback">
+<span class="name">StreamCallback</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/providers/openai.zig#L190" class="source-link" target="_blank">🔗 openai.zig:190</a></div>
+</div>
+</div>
+<script>
+document.getElementById('search').addEventListener('input', function(e) {
+  const query = e.target.value.toLowerCase();
+  const navItems = document.querySelectorAll('.nav-item');
+  const declarations = document.querySelectorAll('.declaration');
+  const sections = document.querySelectorAll('.nav-section');
+
+  navItems.forEach(function(item) {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(query) ? 'block' : 'none';
+  });
+
+  declarations.forEach(function(decl) {
+    const name = decl.querySelector('.name').textContent.toLowerCase();
+    decl.style.display = name.includes(query) ? 'block' : 'none';
+  });
+
+  sections.forEach(function(section) {
+    const visibleItems = section.querySelectorAll('.nav-item[style*="block"], .nav-item:not([style])');
+    section.style.display = (query === '' || visibleItems.length > 0) ? 'block' : 'none';
+  });
+});
+
+// Syntax highlighting for Zig code
+function highlightZig(code) {
+  const keywords = ['const', 'var', 'pub', 'fn', 'struct', 'enum', 'union', 'if', 'else', 'while', 'for', 'return', 'try', 'catch', 'defer', 'errdefer', 'switch', 'and', 'or', 'null', 'undefined', 'true', 'false', 'test', 'comptime', 'inline', 'export', 'extern', 'packed', 'align', 'volatile', 'allowzero', 'async', 'await', 'suspend', 'resume', 'cancel'];
+  const types = ['u8', 'u16', 'u32', 'u64', 'i8', 'i16', 'i32', 'i64', 'f32', 'f64', 'bool', 'usize', 'isize', 'c_short', 'c_ushort', 'c_int', 'c_uint', 'c_long', 'c_ulong', 'c_longlong', 'c_ulonglong', 'c_longdouble', 'c_void', 'void', 'noreturn', 'type', 'anyerror', 'anyframe', 'anytype'];
+
+  let result = code;
+
+  // Highlight strings
+  result = result.replace(/"([^"\\\\]|\\\\.)*"/g, '<span class="zig-string">$&</span>');
+  result = result.replace(/'([^'\\\\]|\\\\.)'/g, '<span class="zig-string">$&</span>');
+
+  // Highlight numbers
+  result = result.replace(/\\b\\d+(\\.\\d+)?\\b/g, '<span class="zig-number">$&</span>');
+
+  // Highlight comments
+  result = result.replace(/\\/\\/.*$/gm, '<span class="zig-comment">$&</span>');
+
+  // Highlight keywords
+  keywords.forEach(function(keyword) {
+    const regex = new RegExp('\\\\b' + keyword + '\\\\b', 'g');
+    result = result.replace(regex, '<span class="zig-keyword">' + keyword + '</span>');
+  });
+
+  // Highlight types
+  types.forEach(function(type) {
+    const regex = new RegExp('\\\\b' + type + '\\\\b', 'g');
+    result = result.replace(regex, '<span class="zig-type">' + type + '</span>');
+  });
+
+  return result;
+}
+
+// Apply syntax highlighting on page load
+document.addEventListener('DOMContentLoaded', function() {
+  const codeBlocks = document.querySelectorAll('code');
+  codeBlocks.forEach(function(block) {
+    if (block.textContent.includes('const') || block.textContent.includes('fn') || block.textContent.includes('pub')) {
+      block.innerHTML = highlightZig(block.textContent);
+    }
+  });
+});
+</script>
+</body>
+</html>

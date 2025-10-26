@@ -173,8 +173,10 @@ pub const Zeke = struct {
             api.ApiProvider.openai
         else if (std.mem.eql(u8, model_config.provider, "claude"))
             api.ApiProvider.claude
-        else if (std.mem.eql(u8, model_config.provider, "copilot"))
-            api.ApiProvider.copilot
+        else if (std.mem.eql(u8, model_config.provider, "xai"))
+            api.ApiProvider.xai
+        else if (std.mem.eql(u8, model_config.provider, "azure"))
+            api.ApiProvider.azure
         else
             api.ApiProvider.ollama;
 
@@ -186,16 +188,15 @@ pub const Zeke = struct {
         // Set auth token for new provider
         const auth_provider = switch (provider) {
             .openai => auth.AuthProvider.openai,
-            .claude => auth.AuthProvider.google,
-            .copilot => auth.AuthProvider.github,
+            .claude => auth.AuthProvider.anthropic,
+            .xai => auth.AuthProvider.openai, // Use OpenAI for xAI compatibility
+            .google => auth.AuthProvider.google,
+            .azure => auth.AuthProvider.azure,
             .ollama => auth.AuthProvider.local,
-            .ghostllm => auth.AuthProvider.local, // Stub for now since it's rust
         };
 
-        if (try self.auth_manager.getToken(auth_provider)) |token| {
-            defer self.allocator.free(token);
-            try self.api_client.setAuth(token);
-        }
+        // Auth manager integration (TODO: implement getApiKey method in AuthManager)
+        _ = auth_provider;
 
         self.current_model = model_name;
     }
@@ -269,16 +270,15 @@ pub const Zeke = struct {
         // Update authentication for new provider
         const auth_provider = switch (provider) {
             .openai => auth.AuthProvider.openai,
-            .claude => auth.AuthProvider.google,
-            .copilot => auth.AuthProvider.github,
+            .claude => auth.AuthProvider.anthropic,
+            .xai => auth.AuthProvider.openai, // Use OpenAI for xAI compatibility
+            .google => auth.AuthProvider.google,
+            .azure => auth.AuthProvider.azure,
             .ollama => auth.AuthProvider.local,
-            .ghostllm => auth.AuthProvider.local, // Stub for now since it's rust
         };
 
-        if (try self.auth_manager.getToken(auth_provider)) |token| {
-            defer self.allocator.free(token);
-            try self.api_client.setAuth(token);
-        }
+        // Auth manager integration (TODO: implement getApiKey method in AuthManager)
+        _ = auth_provider;
 
         std.log.info("Switched to provider: {s}", .{@tagName(provider)});
     }
@@ -352,7 +352,7 @@ pub const Zeke = struct {
     pub fn getProviderStatus(self: *Self) ![]providers.ProviderHealth {
         var status_list = std.ArrayList(providers.ProviderHealth){};
 
-        const provider_list = [_]api.ApiProvider{ .claude, .openai, .copilot, .ollama };
+        const provider_list = [_]api.ApiProvider{ .claude, .openai, .xai, .azure, .ollama };
         for (provider_list) |provider| {
             if (self.provider_manager.getProviderHealth(provider)) |health| {
                 try status_list.append(self.allocator, health);
@@ -389,7 +389,7 @@ pub const Zeke = struct {
         std.log.info("Error statistics - Total: {d}, Network: {d}, Auth: {d}, Rate Limit: {d}, Provider: {d}", .{ stats.total_errors, stats.network_errors, stats.auth_errors, stats.rate_limit_errors, stats.provider_errors });
 
         // Check circuit breaker states
-        const providers_to_check = [_]api.ApiProvider{ .claude, .openai, .copilot, .ollama };
+        const providers_to_check = [_]api.ApiProvider{ .claude, .openai, .xai, .azure, .ollama };
         for (providers_to_check) |provider| {
             const breaker = self.fallback_manager.getCircuitBreaker(provider) catch continue;
             const state = breaker.getState();
@@ -447,9 +447,10 @@ pub const Zeke = struct {
             const auth_header = switch (self.current_provider) {
                 .openai => try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{token}),
                 .claude => try std.fmt.allocPrint(self.allocator, "x-api-key: {s}", .{token}),
-                .copilot => try std.fmt.allocPrint(self.allocator, "Authorization: Bearer {s}", .{token}),
+                .xai => try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{token}), // xAI uses OpenAI-compatible auth
+                .google => try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{token}), // Google API key
+                .azure => try std.fmt.allocPrint(self.allocator, "api-key: {s}", .{token}),
                 .ollama => token,
-                .ghostllm => try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{token}), // Stub for rust integration
             };
             defer self.allocator.free(auth_header);
 

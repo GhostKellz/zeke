@@ -1,0 +1,77 @@
+# Zeke Configuration File
+# This file controls default provider selection and model preferences
+
+[default]
+# Default provider to use when none is specified
+provider = "ollama"  # Options: openai, claude, xai, google, copilot, ollama
+
+# Default model for each provider
+model = "qwen2.5-coder:7b"
+
+[providers.openai]
+enabled = true
+model = "gpt-4-turbo"
+# api_key = "sk-..."  # Set via: zeke auth openai <key> or OPENAI_API_KEY env var
+temperature = 0.7
+max_tokens = 4096
+
+[providers.claude]
+enabled = true
+model = "claude-3-5-sonnet-20241022"  # Claude 3.5 Sonnet
+# api_key = ""  # Set via: zeke auth claude <key> or ANTHROPIC_API_KEY env var
+temperature = 0.7
+max_tokens = 8192
+
+[providers.xai]
+enabled = true
+model = "grok-beta"
+# api_key = ""  # Set via: zeke auth xai <key> or XAI_API_KEY env var
+temperature = 0.7
+max_tokens = 4096
+
+[providers.google]
+enabled = true
+model = "gemini-pro"  # or "gemini-1.5-flash", "gemini-pro-vision"
+# api_key = ""  # Set via: zeke auth google <key> or GOOGLE_API_KEY env var
+temperature = 0.7
+max_tokens = 8192
+
+[providers.copilot]
+# GitHub Copilot - Requires GitHub Pro subscription and OAuth
+enabled = true
+model = "gpt-4"  # Copilot uses GPT-4 or Claude models
+# auth_method = "oauth"  # Authenticate via: zeke auth github
+
+[providers.ollama]
+# Local Ollama - Free, runs in Docker or on localhost
+enabled = true
+model = "qwen2.5-coder:7b"  # Fast local coding model
+host = "http://localhost:11434"  # Or Docker container IP
+# Alternative models:
+# - "llama3.2:3b" (fast, general)
+# - "codellama:13b" (code focused)
+# - "deepseek-coder:6.7b" (code focused)
+# - "qwen2.5-coder:7b" (recommended - fast & capable)
+
+[features]
+# Enable/disable features
+streaming = true
+file_operations = true
+web_search = false  # Requires API keys for search providers
+tool_confirmation = true  # Ask before destructive operations
+auto_save = true  # Save conversation history
+
+[ui]
+# TUI preferences
+theme = "dark"
+show_line_numbers = true
+syntax_highlighting = true
+vim_mode = false
+
+[nvim]
+# Settings for zeke.nvim plugin
+enabled = true
+auto_complete = true
+inline_suggestions = true
+# When multiple providers are available, fallback order:
+provider_fallback = ["copilot", "ollama", "google", "claude", "openai", "xai"]

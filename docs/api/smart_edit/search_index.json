@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/tools/smart_edit.zig",
+      "line": 5,
+      "description": "Smart Edit Tools - Grove Integration",
+      "keywords": ["std", "variable", "Smart", "Edit", "Tools", "Grove", "Integration"]
+    },
+    {
+      "name": "zeke",
+      "type": "variable",
+      "file": "src/tools/smart_edit.zig",
+      "line": 6,
+      "keywords": ["zeke", "variable"]
+    },
+    {
+      "name": "SmartEdit",
+      "type": "struct",
+      "file": "src/tools/smart_edit.zig",
+      "line": 9,
+      "keywords": ["SmartEdit", "struct"]
+    },
+    {
+      "name": "AnalysisResult",
+      "type": "struct",
+      "file": "src/tools/smart_edit.zig",
+      "line": 194,
+      "keywords": ["AnalysisResult", "struct"]
+    },
+    {
+      "name": "RefactorResult",
+      "type": "struct",
+      "file": "src/tools/smart_edit.zig",
+      "line": 254,
+      "keywords": ["RefactorResult", "struct"]
+    }
+  ]
+}

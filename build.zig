@@ -31,6 +31,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const zontom = b.dependency("zontom", .{
+        .target = target,
+        .optimize = optimize,
+    });
     const phantom = b.dependency("phantom", .{
         .target = target,
         .optimize = optimize,
@@ -65,10 +69,6 @@ pub fn build(b: *std.Build) void {
         .with_brotli = false, // No Brotli needed
         .with_zlib = true,    // Enable gzip compression
     });
-    const zdoc = b.dependency("zdoc", .{
-        .target = target,
-        .optimize = optimize,
-    });
 
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
@@ -91,6 +91,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "zqlite", .module = zqlite.module("zqlite") },
             .{ .name = "flash", .module = flash.module("flash") },
+            .{ .name = "zontom", .module = zontom.module("zontom") },
             .{ .name = "phantom", .module = phantom.module("phantom") },
             .{ .name = "zsync", .module = zsync.module("zsync") },
             .{ .name = "zap", .module = zap.module("zap") },
@@ -142,6 +143,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "zeke", .module = mod },
                 .{ .name = "zqlite", .module = zqlite.module("zqlite") },
                 .{ .name = "flash", .module = flash.module("flash") },
+                .{ .name = "zontom", .module = zontom.module("zontom") },
                 .{ .name = "phantom", .module = phantom.module("phantom") },
                 .{ .name = "zsync", .module = zsync.module("zsync") },
                 .{ .name = "zap", .module = zap.module("zap") },
@@ -225,48 +227,4 @@ pub fn build(b: *std.Build) void {
     //
     // Lastly, the Zig build system is relatively simple and self-contained,
     // and reading its source code will allow you to master it.
-
-    // Documentation generation with zdoc
-    const zdoc_exe = zdoc.artifact("zdoc");
-    const docs_step = b.step("docs", "Generate API documentation with zdoc");
-
-    const run_zdoc = b.addRunArtifact(zdoc_exe);
-    run_zdoc.addArgs(&.{
-        "--format=html",
-        // Core API modules
-        "src/api/client.zig",
-        "src/api/http_client.zig",
-        // Provider modules
-        "src/providers/claude.zig",
-        "src/providers/openai.zig",
-        "src/providers/ollama.zig",
-        "src/providers/ghostllm.zig",
-        "src/providers/omen.zig",
-        // MCP integration
-        "src/mcp/mod.zig",
-        "src/mcp/client.zig",
-        // Configuration
-        "src/config/mod.zig",
-        // Storage
-        "src/storage/mod.zig",
-        "src/storage/database.zig",
-        "src/storage/conversation_store.zig",
-        // Tools
-        "src/tools/mod.zig",
-        "src/tools/smart_edit.zig",
-        "src/tools/smart_git.zig",
-        // RPC/Routing
-        "src/rpc/ghost_rpc.zig",
-        "src/routing/router.zig",
-        // TUI
-        "src/tui/mod.zig",
-        // Git integration
-        "src/git/mod.zig",
-        // Root module
-        "src/root.zig",
-        // Output directory (must be last!)
-        "docs/api",
-    });
-
-    docs_step.dependOn(&run_zdoc.step);
 }

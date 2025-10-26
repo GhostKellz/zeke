@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/git/mod.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "GitInfo",
+      "type": "struct",
+      "file": "src/git/mod.zig",
+      "line": 3,
+      "keywords": ["GitInfo", "struct"]
+    },
+    {
+      "name": "GitFile",
+      "type": "struct",
+      "file": "src/git/mod.zig",
+      "line": 14,
+      "keywords": ["GitFile", "struct"]
+    },
+    {
+      "name": "GitFileStatus",
+      "type": "enum",
+      "file": "src/git/mod.zig",
+      "line": 23,
+      "keywords": ["GitFileStatus", "enum"]
+    },
+    {
+      "name": "GitOps",
+      "type": "struct",
+      "file": "src/git/mod.zig",
+      "line": 32,
+      "keywords": ["GitOps", "struct"]
+    }
+  ]
+}

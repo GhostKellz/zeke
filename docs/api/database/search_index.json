@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/storage/database.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "zqlite",
+      "type": "variable",
+      "file": "src/storage/database.zig",
+      "line": 2,
+      "keywords": ["zqlite", "variable"]
+    },
+    {
+      "name": "Database",
+      "type": "struct",
+      "file": "src/storage/database.zig",
+      "line": 4,
+      "keywords": ["Database", "struct"]
+    },
+    {
+      "name": "Conversation",
+      "type": "struct",
+      "file": "src/storage/database.zig",
+      "line": 109,
+      "keywords": ["Conversation", "struct"]
+    },
+    {
+      "name": "Message",
+      "type": "struct",
+      "file": "src/storage/database.zig",
+      "line": 118,
+      "keywords": ["Message", "struct"]
+    },
+    {
+      "name": "ContextCache",
+      "type": "struct",
+      "file": "src/storage/database.zig",
+      "line": 127,
+      "keywords": ["ContextCache", "struct"]
+    },
+    {
+      "name": "ModelConfig",
+      "type": "struct",
+      "file": "src/storage/database.zig",
+      "line": 137,
+      "keywords": ["ModelConfig", "struct"]
+    }
+  ]
+}

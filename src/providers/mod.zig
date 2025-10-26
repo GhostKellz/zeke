@@ -3,7 +3,11 @@ const api = @import("../api/client.zig");
 
 // Provider client exports
 pub const ollama = @import("ollama.zig");
-pub const omen = @import("omen.zig");
+pub const xai = @import("xai.zig");
+pub const azure = @import("azure.zig");
+pub const claude = @import("claude.zig");
+pub const openai = @import("openai.zig");
+pub const google = @import("google.zig");
 
 pub const ProviderCapability = enum {
     chat_completion,
@@ -88,74 +92,72 @@ pub const ProviderManager = struct {
     }
     
     fn setupDefaultConfigs(self: *Self) !void {
-        // OpenAI configuration
-        const openai_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
-            .chat_completion, .code_completion, .code_explanation, .streaming
-        });
-        const openai_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.claude, .ollama});
-        
-        try self.provider_configs.put(.openai, ProviderConfig{
-            .provider = .openai,
-            .priority = 8,
-            .capabilities = openai_caps,
-            .max_requests_per_minute = 60,
-            .timeout_ms = 30000,
-            .fallback_providers = openai_fallbacks,
-        });
-        
-        // Claude configuration
+        // Claude configuration (highest priority - best for code)
         const claude_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
             .chat_completion, .code_completion, .code_analysis, .code_explanation, .streaming
         });
-        const claude_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.openai, .ollama});
-        
+        const claude_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.openai, .xai, .ollama});
+
         try self.provider_configs.put(.claude, ProviderConfig{
             .provider = .claude,
-            .priority = 9,
+            .priority = 10,
             .capabilities = claude_caps,
             .max_requests_per_minute = 50,
             .timeout_ms = 45000,
             .fallback_providers = claude_fallbacks,
         });
-        
-        // GitHub Copilot configuration
-        const copilot_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
-            .code_completion, .code_explanation
+
+        // OpenAI configuration
+        const openai_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
+            .chat_completion, .code_completion, .code_explanation, .streaming
         });
-        const copilot_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.openai, .claude});
-        
-        try self.provider_configs.put(.copilot, ProviderConfig{
-            .provider = .copilot,
+        const openai_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.claude, .xai, .ollama});
+
+        try self.provider_configs.put(.openai, ProviderConfig{
+            .provider = .openai,
+            .priority = 9,
+            .capabilities = openai_caps,
+            .max_requests_per_minute = 60,
+            .timeout_ms = 30000,
+            .fallback_providers = openai_fallbacks,
+        });
+
+        // xAI/Grok configuration (latest models)
+        const xai_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
+            .chat_completion, .code_completion, .code_explanation, .streaming
+        });
+        const xai_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.openai, .claude, .ollama});
+
+        try self.provider_configs.put(.xai, ProviderConfig{
+            .provider = .xai,
+            .priority = 8,
+            .capabilities = xai_caps,
+            .max_requests_per_minute = 60,
+            .timeout_ms = 30000,
+            .fallback_providers = xai_fallbacks,
+        });
+
+        // Azure OpenAI configuration
+        const azure_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
+            .chat_completion, .code_completion, .code_explanation, .streaming
+        });
+        const azure_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.openai, .claude, .ollama});
+
+        try self.provider_configs.put(.azure, ProviderConfig{
+            .provider = .azure,
             .priority = 7,
-            .capabilities = copilot_caps,
-            .max_requests_per_minute = 100,
-            .timeout_ms = 15000,
-            .fallback_providers = copilot_fallbacks,
+            .capabilities = azure_caps,
+            .max_requests_per_minute = 60,
+            .timeout_ms = 30000,
+            .fallback_providers = azure_fallbacks,
         });
-        
-        // GhostLLM configuration (highest priority with all capabilities)
-        const ghostllm_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
-            .chat_completion, .code_completion, .code_analysis, .code_explanation, 
-            .code_refactoring, .test_generation, .project_context, .commit_generation, 
-            .security_scanning, .streaming
-        });
-        const ghostllm_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.claude, .openai});
-        
-        try self.provider_configs.put(.ghostllm, ProviderConfig{
-            .provider = .ghostllm,
-            .priority = 10,
-            .capabilities = ghostllm_caps,
-            .max_requests_per_minute = 200,
-            .timeout_ms = 5000, // Fast GPU responses
-            .fallback_providers = ghostllm_fallbacks,
-        });
-        
-        // Ollama configuration (local fallback)
+
+        // Ollama configuration (local, always available, lowest priority)
         const ollama_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
             .chat_completion, .code_completion, .code_explanation
         });
         const ollama_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{});
-        
+
         try self.provider_configs.put(.ollama, ProviderConfig{
             .provider = .ollama,
             .priority = 5,

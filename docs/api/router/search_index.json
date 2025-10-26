@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/routing/router.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "ollama",
+      "type": "variable",
+      "file": "src/routing/router.zig",
+      "line": 2,
+      "keywords": ["ollama", "variable"]
+    },
+    {
+      "name": "omen",
+      "type": "variable",
+      "file": "src/routing/router.zig",
+      "line": 3,
+      "keywords": ["omen", "variable"]
+    },
+    {
+      "name": "routing_db",
+      "type": "variable",
+      "file": "src/routing/router.zig",
+      "line": 4,
+      "keywords": ["routing_db", "variable"]
+    },
+    {
+      "name": "mcp",
+      "type": "variable",
+      "file": "src/routing/router.zig",
+      "line": 5,
+      "keywords": ["mcp", "variable"]
+    },
+    {
+      "name": "SmartRouter",
+      "type": "struct",
+      "file": "src/routing/router.zig",
+      "line": 8,
+      "keywords": ["SmartRouter", "struct"]
+    },
+    {
+      "name": "RoutingConfig",
+      "type": "struct",
+      "file": "src/routing/router.zig",
+      "line": 300,
+      "keywords": ["RoutingConfig", "struct"]
+    },
+    {
+      "name": "CompletionRequest",
+      "type": "struct",
+      "file": "src/routing/router.zig",
+      "line": 313,
+      "keywords": ["CompletionRequest", "struct"]
+    },
+    {
+      "name": "CompletionResponse",
+      "type": "struct",
+      "file": "src/routing/router.zig",
+      "line": 326,
+      "keywords": ["CompletionResponse", "struct"]
+    },
+    {
+      "name": "RoutingDecision",
+      "type": "struct",
+      "file": "src/routing/router.zig",
+      "line": 335,
+      "keywords": ["RoutingDecision", "struct"]
+    },
+    {
+      "name": "ProviderType",
+      "type": "enum",
+      "file": "src/routing/router.zig",
+      "line": 341,
+      "keywords": ["ProviderType", "enum"]
+    },
+    {
+      "name": "Complexity",
+      "type": "enum",
+      "file": "src/routing/router.zig",
+      "line": 347,
+      "keywords": ["Complexity", "enum"]
+    },
+    {
+      "name": "defaultConfig",
+      "type": "function",
+      "file": "src/routing/router.zig",
+      "line": 354,
+      "signature": "fn() RoutingConfig",
+      "keywords": ["defaultConfig", "function"]
+    },
+    {
+      "name": "testRouting",
+      "type": "function",
+      "file": "src/routing/router.zig",
+      "line": 359,
+      "signature": "fn() void",
+      "keywords": ["testRouting", "function"]
+    }
+  ]
+}

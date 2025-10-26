@@ -1,7 +1,7 @@
 # ZEKE Development Roadmap
 ## AI Dev Companion to Match & Exceed Claude-Code CLI
 
-**Current Status**: MVP (v0.2.8) - Zig Native Implementation
+**Current Status**: Alpha (v0.3.0) - Production-Ready Zig Implementation
 **Architecture**: Async-first with zsync runtime, multi-provider AI support
 **Target**: Match Claude-Code CLI capabilities and establish market leadership
 

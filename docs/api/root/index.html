@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zdoc Documentation</title>
+<style>
+body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+h1 {{ color: #333; margin: 0 0 20px 0; }}
+h2 {{ color: #666; border-bottom: 1px solid #ddd; margin: 30px 0 15px 0; }}
+.container {{ display: flex; min-height: 100vh; }}
+.sidebar {{ width: 250px; background: #f8f9fa; border-right: 1px solid #ddd; padding: 20px; overflow-y: auto; }}
+.content {{ flex: 1; padding: 40px; }}
+.nav-section {{ margin-bottom: 20px; }}
+.nav-title {{ font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; font-size: 0.9em; }}
+.nav-item {{ display: block; color: #007acc; text-decoration: none; padding: 4px 8px; border-radius: 3px; margin-bottom: 2px; }}
+.nav-item:hover {{ background: #e9ecef; }}
+.nav-function {{ border-left: 3px solid #28a745; }}
+.nav-struct {{ border-left: 3px solid #dc3545; }}
+.nav-enum {{ border-left: 3px solid #ffc107; }}
+.nav-union {{ border-left: 3px solid #17a2b8; }}
+.nav-variable {{ border-left: 3px solid #6c757d; }}
+.declaration {{ margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 3px solid #007acc; }}
+.function {{ border-left-color: #28a745; }}
+.struct {{ border-left-color: #dc3545; }}
+.enum {{ border-left-color: #ffc107; }}
+.union {{ border-left-color: #17a2b8; }}
+.variable {{ border-left-color: #6c757d; }}
+.name {{ font-weight: bold; }}
+.kind {{ color: #666; font-size: 0.8em; text-transform: uppercase; }}
+.signature {{ font-family: monospace; color: #333; }}
+.doc-comment {{ color: #555; font-style: italic; margin-top: 5px; padding: 5px; background: #f0f0f0; border-radius: 3px; }}
+.code-block {{ background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 10px 0; overflow-x: auto; }}
+.code-block code {{ background: none; padding: 0; }}
+.zig-keyword {{ color: #0066cc; font-weight: bold; }}
+.zig-string {{ color: #008800; }}
+.zig-number {{ color: #aa6600; }}
+.zig-comment {{ color: #888888; font-style: italic; }}
+.zig-type {{ color: #0088aa; font-weight: bold; }}
+.zig-function {{ color: #7700aa; }}
+.generic-indicator {{ color: #cc6600; font-weight: bold; font-style: italic; }}
+.badge {{ display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.75em; font-weight: bold; margin-left: 5px; }}
+.badge-pub {{ background: #28a745; color: white; }}
+.badge-export {{ background: #007acc; color: white; }}
+.badge-extern {{ background: #6c757d; color: white; }}
+.badge-generic {{ background: #cc6600; color: white; }}
+.params-section {{ margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }}
+.params-title {{ font-weight: bold; color: #555; margin-bottom: 5px; }}
+.param-item {{ margin: 5px 0 5px 15px; font-family: monospace; }}
+.param-name {{ color: #0066cc; font-weight: bold; }}
+.param-type {{ color: #0088aa; }}
+.return-section {{ margin: 10px 0; padding: 8px; background: #e9f7ef; border-left: 3px solid #28a745; }}
+.error-section {{ margin: 10px 0; padding: 8px; background: #fff3cd; border-left: 3px solid #ffc107; }}
+.fields-table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
+.fields-table th {{ background: #e9ecef; padding: 8px; text-align: left; border: 1px solid #ddd; }}
+.fields-table td {{ padding: 8px; border: 1px solid #ddd; font-family: monospace; }}
+.source-link {{ display: inline-block; margin-top: 5px; font-size: 0.85em; color: #007acc; text-decoration: none; }}
+.source-link:hover {{ text-decoration: underline; }}
+.doc-tags {{ margin: 10px 0; }}
+.doc-tag {{ margin: 5px 0; padding: 5px; background: #f0f4f8; border-left: 2px solid #007acc; }}
+.doc-tag-label {{ font-weight: bold; color: #007acc; }}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {{
+  .container {{ flex-direction: column; }}
+  .sidebar {{ width: 100%; border-right: none; border-bottom: 1px solid #ddd; padding: 15px; }}
+  .content {{ padding: 20px; }}
+  .nav-section {{ display: inline-block; margin-right: 20px; vertical-align: top; }}
+  .nav-title {{ margin-bottom: 5px; }}
+  .nav-item {{ display: inline-block; margin-right: 10px; margin-bottom: 5px; }}
+  h1 {{ font-size: 1.8em; }}
+  h2 {{ font-size: 1.4em; }}
+  .declaration {{ margin: 8px 0; padding: 8px; }}
+}}
+
+@media (max-width: 480px) {{
+  .content {{ padding: 15px; }}
+  .sidebar {{ padding: 10px; }}
+  h1 {{ font-size: 1.6em; }}
+  h2 {{ font-size: 1.2em; }}
+  .nav-section {{ display: block; margin-bottom: 15px; }}
+  .declaration {{ margin: 6px 0; padding: 6px; }}
+}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="sidebar">
+<h3>Navigation</h3>
+<div style="margin-bottom: 15px;">
+<input type="text" id="search" placeholder="Search declarations..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+</div>
+<div class="nav-section">
+<div class="nav-title">Functions</div><a href="#bufferedPrint" class="nav-item nav-function">bufferedPrint</a><a href="#add" class="nav-item nav-function">add</a></div>
+<div class="nav-section">
+<div class="nav-title">Structs</div><a href="#routing" class="nav-item nav-struct">routing</a><a href="#db" class="nav-item nav-struct">db</a><a href="#rpc" class="nav-item nav-struct">rpc</a><a href="#Zeke" class="nav-item nav-struct">Zeke</a></div>
+<div class="nav-section">
+<div class="nav-title">Error Sets</div><a href="#ZekeError" class="nav-item nav-error">ZekeError</a></div>
+<div class="nav-section">
+<div class="nav-title">Variables</div><a href="#std" class="nav-item nav-variable">std</a><a href="#zsync" class="nav-item nav-variable">zsync</a><a href="#api" class="nav-item nav-variable">api</a><a href="#auth" class="nav-item nav-variable">auth</a><a href="#config" class="nav-item nav-variable">config</a><a href="#providers" class="nav-item nav-variable">providers</a><a href="#streaming" class="nav-item nav-variable">streaming</a><a href="#error_handling" class="nav-item nav-variable">error_handling</a><a href="#context" class="nav-item nav-variable">context</a><a href="#concurrent" class="nav-item nav-variable">concurrent</a><a href="#system" class="nav-item nav-variable">system</a><a href="#tui" class="nav-item nav-variable">tui</a><a href="#git" class="nav-item nav-variable">git</a><a href="#search" class="nav-item nav-variable">search</a><a href="#build" class="nav-item nav-variable">build</a><a href="#storage" class="nav-item nav-variable">storage</a><a href="#watch" class="nav-item nav-variable">watch</a><a href="#integrations" class="nav-item nav-variable">integrations</a><a href="#mcp" class="nav-item nav-variable">mcp</a></div>
+</div>
+<div class="content">
+<h1>API Documentation for src/root.zig</h1><h2>Functions</h2>
+<div class="declaration function" id="bufferedPrint">
+<span class="name">bufferedPrint</span> <span class="kind">Functions</span><span class="badge badge-pub">pub</span><br><span class="signature">fn() void</span><div class="return-section"><strong>Returns:</strong> <span class="param-type">void</span></div><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L713" class="source-link" target="_blank">🔗 root.zig:713</a></div>
+<div class="declaration function" id="add">
+<span class="name">add</span> <span class="kind">Functions</span><span class="badge badge-pub">pub</span><br><span class="signature">fn(i32, i32) i32</span><div class="params-section"><div class="params-title">Parameters:</div><div class="param-item"><span class="param-name">i32</span></div><div class="param-item"><span class="param-name">i32</span></div></div><div class="return-section"><strong>Returns:</strong> <span class="param-type">i32</span></div><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L718" class="source-link" target="_blank">🔗 root.zig:718</a></div>
+<h2>Structs</h2>
+<div class="declaration struct" id="routing">
+<span class="name">routing</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L16" class="source-link" target="_blank">🔗 root.zig:16</a></div>
+<div class="declaration struct" id="db">
+<span class="name">db</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L22" class="source-link" target="_blank">🔗 root.zig:22</a></div>
+<div class="declaration struct" id="rpc">
+<span class="name">rpc</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L29" class="source-link" target="_blank">🔗 root.zig:29</a></div>
+<div class="declaration struct" id="Zeke">
+<span class="name">Zeke</span> <span class="kind">Structs</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L54" class="source-link" target="_blank">🔗 root.zig:54</a></div>
+<h2>Error Sets</h2>
+<div class="declaration error-set" id="ZekeError">
+<span class="name">ZekeError</span> <span class="kind">Error Sets</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L44" class="source-link" target="_blank">🔗 root.zig:44</a></div>
+<h2>Variables</h2>
+<div class="declaration variable" id="std">
+<span class="name">std</span> <span class="kind">Variables</span><br><div class="doc-comment"><p>ZEKE - The Zig-Native AI Dev Companion</p>
+</div><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L2" class="source-link" target="_blank">🔗 root.zig:2</a></div>
+<div class="declaration variable" id="zsync">
+<span class="name">zsync</span> <span class="kind">Variables</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L3" class="source-link" target="_blank">🔗 root.zig:3</a></div>
+<div class="declaration variable" id="api">
+<span class="name">api</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L6" class="source-link" target="_blank">🔗 root.zig:6</a></div>
+<div class="declaration variable" id="auth">
+<span class="name">auth</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L7" class="source-link" target="_blank">🔗 root.zig:7</a></div>
+<div class="declaration variable" id="config">
+<span class="name">config</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L8" class="source-link" target="_blank">🔗 root.zig:8</a></div>
+<div class="declaration variable" id="providers">
+<span class="name">providers</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L9" class="source-link" target="_blank">🔗 root.zig:9</a></div>
+<div class="declaration variable" id="streaming">
+<span class="name">streaming</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L10" class="source-link" target="_blank">🔗 root.zig:10</a></div>
+<div class="declaration variable" id="error_handling">
+<span class="name">error_handling</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L11" class="source-link" target="_blank">🔗 root.zig:11</a></div>
+<div class="declaration variable" id="context">
+<span class="name">context</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L12" class="source-link" target="_blank">🔗 root.zig:12</a></div>
+<div class="declaration variable" id="concurrent">
+<span class="name">concurrent</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L13" class="source-link" target="_blank">🔗 root.zig:13</a></div>
+<div class="declaration variable" id="system">
+<span class="name">system</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L14" class="source-link" target="_blank">🔗 root.zig:14</a></div>
+<div class="declaration variable" id="tui">
+<span class="name">tui</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L15" class="source-link" target="_blank">🔗 root.zig:15</a></div>
+<div class="declaration variable" id="git">
+<span class="name">git</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L36" class="source-link" target="_blank">🔗 root.zig:36</a></div>
+<div class="declaration variable" id="search">
+<span class="name">search</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L37" class="source-link" target="_blank">🔗 root.zig:37</a></div>
+<div class="declaration variable" id="build">
+<span class="name">build</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L38" class="source-link" target="_blank">🔗 root.zig:38</a></div>
+<div class="declaration variable" id="storage">
+<span class="name">storage</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L39" class="source-link" target="_blank">🔗 root.zig:39</a></div>
+<div class="declaration variable" id="watch">
+<span class="name">watch</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L40" class="source-link" target="_blank">🔗 root.zig:40</a></div>
+<div class="declaration variable" id="integrations">
+<span class="name">integrations</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L41" class="source-link" target="_blank">🔗 root.zig:41</a></div>
+<div class="declaration variable" id="mcp">
+<span class="name">mcp</span> <span class="kind">Variables</span><span class="badge badge-pub">pub</span><a href="https://github.com/ghostkellz/zeke/blob/main/src/root.zig#L42" class="source-link" target="_blank">🔗 root.zig:42</a></div>
+</div>
+</div>
+<script>
+document.getElementById('search').addEventListener('input', function(e) {
+  const query = e.target.value.toLowerCase();
+  const navItems = document.querySelectorAll('.nav-item');
+  const declarations = document.querySelectorAll('.declaration');
+  const sections = document.querySelectorAll('.nav-section');
+
+  navItems.forEach(function(item) {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(query) ? 'block' : 'none';
+  });
+
+  declarations.forEach(function(decl) {
+    const name = decl.querySelector('.name').textContent.toLowerCase();
+    decl.style.display = name.includes(query) ? 'block' : 'none';
+  });
+
+  sections.forEach(function(section) {
+    const visibleItems = section.querySelectorAll('.nav-item[style*="block"], .nav-item:not([style])');
+    section.style.display = (query === '' || visibleItems.length > 0) ? 'block' : 'none';
+  });
+});
+
+// Syntax highlighting for Zig code
+function highlightZig(code) {
+  const keywords = ['const', 'var', 'pub', 'fn', 'struct', 'enum', 'union', 'if', 'else', 'while', 'for', 'return', 'try', 'catch', 'defer', 'errdefer', 'switch', 'and', 'or', 'null', 'undefined', 'true', 'false', 'test', 'comptime', 'inline', 'export', 'extern', 'packed', 'align', 'volatile', 'allowzero', 'async', 'await', 'suspend', 'resume', 'cancel'];
+  const types = ['u8', 'u16', 'u32', 'u64', 'i8', 'i16', 'i32', 'i64', 'f32', 'f64', 'bool', 'usize', 'isize', 'c_short', 'c_ushort', 'c_int', 'c_uint', 'c_long', 'c_ulong', 'c_longlong', 'c_ulonglong', 'c_longdouble', 'c_void', 'void', 'noreturn', 'type', 'anyerror', 'anyframe', 'anytype'];
+
+  let result = code;
+
+  // Highlight strings
+  result = result.replace(/"([^"\\\\]|\\\\.)*"/g, '<span class="zig-string">$&</span>');
+  result = result.replace(/'([^'\\\\]|\\\\.)'/g, '<span class="zig-string">$&</span>');
+
+  // Highlight numbers
+  result = result.replace(/\\b\\d+(\\.\\d+)?\\b/g, '<span class="zig-number">$&</span>');
+
+  // Highlight comments
+  result = result.replace(/\\/\\/.*$/gm, '<span class="zig-comment">$&</span>');
+
+  // Highlight keywords
+  keywords.forEach(function(keyword) {
+    const regex = new RegExp('\\\\b' + keyword + '\\\\b', 'g');
+    result = result.replace(regex, '<span class="zig-keyword">' + keyword + '</span>');
+  });
+
+  // Highlight types
+  types.forEach(function(type) {
+    const regex = new RegExp('\\\\b' + type + '\\\\b', 'g');
+    result = result.replace(regex, '<span class="zig-type">' + type + '</span>');
+  });
+
+  return result;
+}
+
+// Apply syntax highlighting on page load
+document.addEventListener('DOMContentLoaded', function() {
+  const codeBlocks = document.querySelectorAll('code');
+  codeBlocks.forEach(function(block) {
+    if (block.textContent.includes('const') || block.textContent.includes('fn') || block.textContent.includes('pub')) {
+      block.innerHTML = highlightZig(block.textContent);
+    }
+  });
+});
+</script>
+</body>
+</html>

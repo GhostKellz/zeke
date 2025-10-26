@@ -1,0 +1,187 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "zsync",
+      "type": "variable",
+      "file": "src/providers/ghostllm.zig",
+      "line": 2,
+      "keywords": ["zsync", "variable"]
+    },
+    {
+      "name": "api",
+      "type": "variable",
+      "file": "src/providers/ghostllm.zig",
+      "line": 3,
+      "keywords": ["api", "variable"]
+    },
+    {
+      "name": "zqlite",
+      "type": "variable",
+      "file": "src/providers/ghostllm.zig",
+      "line": 4,
+      "keywords": ["zqlite", "variable"]
+    },
+    {
+      "name": "GhostLLMMode",
+      "type": "enum",
+      "file": "src/providers/ghostllm.zig",
+      "line": 6,
+      "keywords": ["GhostLLMMode", "enum"]
+    },
+    {
+      "name": "GhostLLMConfig",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 13,
+      "keywords": ["GhostLLMConfig", "struct"]
+    },
+    {
+      "name": "GpuStats",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 34,
+      "keywords": ["GpuStats", "struct"]
+    },
+    {
+      "name": "BenchmarkResult",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 43,
+      "keywords": ["BenchmarkResult", "struct"]
+    },
+    {
+      "name": "GhostLLMClient",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 51,
+      "keywords": ["GhostLLMClient", "struct"]
+    },
+    {
+      "name": "ChatRequest",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 847,
+      "keywords": ["ChatRequest", "struct"]
+    },
+    {
+      "name": "BenchRequest",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 856,
+      "keywords": ["BenchRequest", "struct"]
+    },
+    {
+      "name": "BenchResponse",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 864,
+      "keywords": ["BenchResponse", "struct"]
+    },
+    {
+      "name": "GhostRequest",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 872,
+      "keywords": ["GhostRequest", "struct"]
+    },
+    {
+      "name": "GhostResponse",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 879,
+      "keywords": ["GhostResponse", "struct"]
+    },
+    {
+      "name": "MetricsCollector",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 886,
+      "keywords": ["MetricsCollector", "struct"]
+    },
+    {
+      "name": "ParallelChatRequest",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 934,
+      "keywords": ["ParallelChatRequest", "struct"]
+    },
+    {
+      "name": "ParallelStreamRequest",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 948,
+      "keywords": ["ParallelStreamRequest", "struct"]
+    },
+    {
+      "name": "ParallelResponseBatch",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 956,
+      "keywords": ["ParallelResponseBatch", "struct"]
+    },
+    {
+      "name": "ResponseCache",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 968,
+      "keywords": ["ResponseCache", "struct"]
+    },
+    {
+      "name": "ConversationSwitch",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1365,
+      "keywords": ["ConversationSwitch", "struct"]
+    },
+    {
+      "name": "ModelTimingResult",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1375,
+      "keywords": ["ModelTimingResult", "struct"]
+    },
+    {
+      "name": "FastestModelResult",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1383,
+      "keywords": ["FastestModelResult", "struct"]
+    },
+    {
+      "name": "ModelCapability",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1391,
+      "keywords": ["ModelCapability", "struct"]
+    },
+    {
+      "name": "PromptAnalysis",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1402,
+      "keywords": ["PromptAnalysis", "struct"]
+    },
+    {
+      "name": "ModelRecommendation",
+      "type": "struct",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1412,
+      "keywords": ["ModelRecommendation", "struct"]
+    },
+    {
+      "name": "ModelComparisonCallback",
+      "type": "variable",
+      "file": "src/providers/ghostllm.zig",
+      "line": 1420,
+      "keywords": ["ModelComparisonCallback", "variable"]
+    }
+  ]
+}

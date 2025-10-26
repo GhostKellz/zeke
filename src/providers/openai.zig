@@ -55,7 +55,7 @@ pub const OpenAIProvider = struct {
         const url = try std.fmt.allocPrint(self.allocator, "{s}/chat/completions", .{self.base_url});
         defer self.allocator.free(url);
         
-        var response = self.http_client.post(url, payload.items, headers) catch |err| {
+        var response = self.http_client.post(url, payload.items, headers) catch {
             return ChatCompletionError.NetworkError;
         };
         defer response.deinit();

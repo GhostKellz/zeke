@@ -1,14 +1,14 @@
 const std = @import("std");
 const ollama = @import("../providers/ollama.zig");
-const omen = @import("../providers/omen.zig");
+// const omen = @import("../providers/omen.zig"); // REMOVED: OMEN cloud routing
 const routing_db = @import("../db/routing.zig");
 const mcp = @import("../mcp/mod.zig");
 
-/// Smart router that decides between local (Ollama) and cloud (OMEN) providers
+/// Smart router that decides between local (Ollama) and cloud providers
 pub const SmartRouter = struct {
     allocator: std.mem.Allocator,
     ollama_client: ?*ollama.OllamaProvider,
-    omen_client: ?*omen.OmenClient,
+    // omen_client: ?*omen.OmenClient, // REMOVED: OMEN cloud routing
     db: ?*routing_db.RoutingDB,
     mcp_client: ?*mcp.McpClient,
     config: RoutingConfig,
@@ -18,14 +18,14 @@ pub const SmartRouter = struct {
     pub fn init(
         allocator: std.mem.Allocator,
         ollama_client: ?*ollama.OllamaProvider,
-        omen_client: ?*omen.OmenClient,
+        // omen_client: ?*omen.OmenClient, // REMOVED: OMEN cloud routing
         db: ?*routing_db.RoutingDB,
         config: RoutingConfig,
     ) Self {
         return .{
             .allocator = allocator,
             .ollama_client = ollama_client,
-            .omen_client = omen_client,
+            // .omen_client = omen_client, // REMOVED: OMEN cloud routing
             .db = db,
             .mcp_client = null, // Set separately via setMcpClient
             .config = config,
@@ -73,27 +73,16 @@ pub const SmartRouter = struct {
 
         switch (decision.provider) {
             .local => {
-                response = self.tryLocalOllama(request, &routing_stats) catch |err| blk: {
-                    std.log.warn("Local Ollama failed: {}, escalating to cloud", .{err});
-
-                    if (self.config.fallback_to_cloud and self.omen_client != null) {
-                        routing_stats.escalated = true;
-                        break :blk try self.useOmen(request, &routing_stats);
-                    }
-
-                    return err;
-                };
+                response = try self.tryLocalOllama(request, &routing_stats);
             },
             .cloud => {
-                response = try self.useOmen(request, &routing_stats);
+                // REMOVED: OMEN cloud routing
+                std.log.err("Cloud provider requested but OMEN has been removed", .{});
+                return error.NoCloudProvider;
             },
             .hybrid => {
-                // Try local first, fallback to cloud on timeout
-                response = self.tryLocalWithTimeout(request, &routing_stats, decision.timeout_ms) catch |err| blk: {
-                    std.log.info("Local timeout/error: {}, escalating to cloud", .{err});
-                    routing_stats.escalated = true;
-                    break :blk try self.useOmen(request, &routing_stats);
-                };
+                // Try local only (cloud fallback removed)
+                response = try self.tryLocalWithTimeout(request, &routing_stats, decision.timeout_ms);
             },
         }
 
@@ -232,61 +221,11 @@ pub const SmartRouter = struct {
         return try self.tryLocalOllama(request, stats);
     }
 
-    fn useOmen(self: *Self, request: CompletionRequest, stats: *routing_db.RoutingStats) !CompletionResponse {
-        if (self.omen_client == null) return error.NoCloudProvider;
-
-        const omen_client = self.omen_client.?;
-
-        // Convert to OMEN chat completion request
-        var messages = [_]omen.Message{
-            .{ .role = "user", .content = request.prompt },
-        };
-
-        const omen_request = omen.ChatCompletionRequest{
-            .model = request.model orelse "auto",
-            .messages = &messages,
-            .temperature = request.temperature,
-            .max_tokens = request.max_tokens,
-            .tags = .{
-                .intent = request.intent,
-                .language = request.language,
-                .complexity = request.complexity,
-                .project = request.project,
-                .priority = request.priority,
-            },
-        };
-
-        const start = std.time.milliTimestamp();
-        const omen_response = try omen_client.chatCompletion(omen_request);
-        const latency = std.time.milliTimestamp() - start;
-
-        const content = if (omen_response.choices.len > 0)
-            omen_response.choices[0].message.content
-        else
-            "";
-
-        stats.provider = if (omen_response.routing_metadata) |rm| rm.provider else "omen";
-        stats.model = omen_response.model;
-        stats.latency_ms = @intCast(latency);
-        if (omen_response.usage) |usage| {
-            stats.tokens_in = usage.prompt_tokens;
-            stats.tokens_out = usage.completion_tokens;
-        }
-        if (omen_response.routing_metadata) |rm| {
-            if (rm.cost_usd) |cost| {
-                stats.cost_cents = cost * 100.0;
-            }
-        }
-
-        return CompletionResponse{
-            .content = content,
-            .model = omen_response.model,
-            .provider = stats.provider,
-            .tokens_in = stats.tokens_in,
-            .tokens_out = stats.tokens_out,
-            .latency_ms = @intCast(latency),
-        };
-    }
+    // REMOVED: useOmen function - OMEN cloud routing has been removed
+    // fn useOmen(self: *Self, request: CompletionRequest, stats: *routing_db.RoutingStats) !CompletionResponse {
+    //     if (self.omen_client == null) return error.NoCloudProvider;
+    //     ...
+    // }
 
     fn generateRequestId(self: *Self) ![]const u8 {
         const timestamp = std.time.timestamp();
@@ -365,14 +304,15 @@ pub fn testRouting() !void {
     var ollama_provider = try ollama.fromEnv(allocator);
     defer ollama_provider.deinit();
 
-    var omen_client = try omen.fromEnv(allocator);
-    defer omen_client.deinit();
+    // REMOVED: OMEN cloud routing
+    // var omen_client = try omen.fromEnv(allocator);
+    // defer omen_client.deinit();
 
     // Create router
     var router = SmartRouter.init(
         allocator,
         &ollama_provider,
-        &omen_client,
+        // &omen_client, // REMOVED: OMEN cloud routing
         null, // No database for test
         defaultConfig(),
     );

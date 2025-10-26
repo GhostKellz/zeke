@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/rpc/ghost_rpc.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "api",
+      "type": "variable",
+      "file": "src/rpc/ghost_rpc.zig",
+      "line": 2,
+      "keywords": ["api", "variable"]
+    },
+    {
+      "name": "streaming",
+      "type": "variable",
+      "file": "src/rpc/ghost_rpc.zig",
+      "line": 3,
+      "keywords": ["streaming", "variable"]
+    },
+    {
+      "name": "project_analyzer",
+      "type": "variable",
+      "file": "src/rpc/ghost_rpc.zig",
+      "line": 4,
+      "keywords": ["project_analyzer", "variable"]
+    },
+    {
+      "name": "Zeke",
+      "type": "variable",
+      "file": "src/rpc/ghost_rpc.zig",
+      "line": 6,
+      "keywords": ["Zeke", "variable"]
+    },
+    {
+      "name": "GhostRPC",
+      "type": "struct",
+      "file": "src/rpc/ghost_rpc.zig",
+      "line": 9,
+      "keywords": ["GhostRPC", "struct"]
+    }
+  ]
+}

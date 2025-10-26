@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/api/http_client.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "zhttp",
+      "type": "variable",
+      "file": "src/api/http_client.zig",
+      "line": 2,
+      "keywords": ["zhttp", "variable"]
+    },
+    {
+      "name": "HttpClient",
+      "type": "struct",
+      "file": "src/api/http_client.zig",
+      "line": 4,
+      "keywords": ["HttpClient", "struct"]
+    },
+    {
+      "name": "HttpResponse",
+      "type": "struct",
+      "file": "src/api/http_client.zig",
+      "line": 110,
+      "keywords": ["HttpResponse", "struct"]
+    },
+    {
+      "name": "HttpError",
+      "type": "error",
+      "file": "src/api/http_client.zig",
+      "line": 162,
+      "keywords": ["HttpError", "error"]
+    },
+    {
+      "name": "createAuthHeader",
+      "type": "function",
+      "file": "src/api/http_client.zig",
+      "line": 173,
+      "signature": "fn(token: [, auth_type: AuthType, AuthType) [",
+      "keywords": ["createAuthHeader", "function"]
+    },
+    {
+      "name": "AuthType",
+      "type": "enum",
+      "file": "src/api/http_client.zig",
+      "line": 181,
+      "keywords": ["AuthType", "enum"]
+    }
+  ]
+}

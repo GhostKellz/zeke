@@ -1,0 +1,190 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 2,
+      "description": "ZEKE - The Zig-Native AI Dev Companion",
+      "keywords": ["std", "variable", "ZEKE", "The", "Zig-Native", "Dev", "Companion"]
+    },
+    {
+      "name": "zsync",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 3,
+      "keywords": ["zsync", "variable"]
+    },
+    {
+      "name": "api",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 6,
+      "keywords": ["api", "variable"]
+    },
+    {
+      "name": "auth",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 7,
+      "keywords": ["auth", "variable"]
+    },
+    {
+      "name": "config",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 8,
+      "keywords": ["config", "variable"]
+    },
+    {
+      "name": "providers",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 9,
+      "keywords": ["providers", "variable"]
+    },
+    {
+      "name": "streaming",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 10,
+      "keywords": ["streaming", "variable"]
+    },
+    {
+      "name": "error_handling",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 11,
+      "keywords": ["error_handling", "variable"]
+    },
+    {
+      "name": "context",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 12,
+      "keywords": ["context", "variable"]
+    },
+    {
+      "name": "concurrent",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 13,
+      "keywords": ["concurrent", "variable"]
+    },
+    {
+      "name": "system",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 14,
+      "keywords": ["system", "variable"]
+    },
+    {
+      "name": "tui",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 15,
+      "keywords": ["tui", "variable"]
+    },
+    {
+      "name": "routing",
+      "type": "struct",
+      "file": "src/root.zig",
+      "line": 16,
+      "keywords": ["routing", "struct"]
+    },
+    {
+      "name": "db",
+      "type": "struct",
+      "file": "src/root.zig",
+      "line": 22,
+      "keywords": ["db", "struct"]
+    },
+    {
+      "name": "rpc",
+      "type": "struct",
+      "file": "src/root.zig",
+      "line": 29,
+      "keywords": ["rpc", "struct"]
+    },
+    {
+      "name": "git",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 36,
+      "keywords": ["git", "variable"]
+    },
+    {
+      "name": "search",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 37,
+      "keywords": ["search", "variable"]
+    },
+    {
+      "name": "build",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 38,
+      "keywords": ["build", "variable"]
+    },
+    {
+      "name": "storage",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 39,
+      "keywords": ["storage", "variable"]
+    },
+    {
+      "name": "watch",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 40,
+      "keywords": ["watch", "variable"]
+    },
+    {
+      "name": "integrations",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 41,
+      "keywords": ["integrations", "variable"]
+    },
+    {
+      "name": "mcp",
+      "type": "variable",
+      "file": "src/root.zig",
+      "line": 42,
+      "keywords": ["mcp", "variable"]
+    },
+    {
+      "name": "ZekeError",
+      "type": "error",
+      "file": "src/root.zig",
+      "line": 44,
+      "keywords": ["ZekeError", "error"]
+    },
+    {
+      "name": "Zeke",
+      "type": "struct",
+      "file": "src/root.zig",
+      "line": 54,
+      "keywords": ["Zeke", "struct"]
+    },
+    {
+      "name": "bufferedPrint",
+      "type": "function",
+      "file": "src/root.zig",
+      "line": 713,
+      "signature": "fn() void",
+      "keywords": ["bufferedPrint", "function"]
+    },
+    {
+      "name": "add",
+      "type": "function",
+      "file": "src/root.zig",
+      "line": 718,
+      "signature": "fn(i32, i32) i32",
+      "keywords": ["add", "function"]
+    }
+  ]
+}

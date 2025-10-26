@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/mcp/client.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "config",
+      "type": "variable",
+      "file": "src/mcp/client.zig",
+      "line": 2,
+      "keywords": ["config", "variable"]
+    },
+    {
+      "name": "McpClient",
+      "type": "struct",
+      "file": "src/mcp/client.zig",
+      "line": 6,
+      "keywords": ["McpClient", "struct"]
+    },
+    {
+      "name": "checkHealth",
+      "type": "function",
+      "file": "src/mcp/client.zig",
+      "line": 554,
+      "signature": "fn(cfg: config, ) bool",
+      "keywords": ["checkHealth", "function"]
+    }
+  ]
+}

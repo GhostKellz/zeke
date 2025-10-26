@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/providers/claude.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "HttpClient",
+      "type": "variable",
+      "file": "src/providers/claude.zig",
+      "line": 2,
+      "keywords": ["HttpClient", "variable"]
+    },
+    {
+      "name": "HttpResponse",
+      "type": "variable",
+      "file": "src/providers/claude.zig",
+      "line": 3,
+      "keywords": ["HttpResponse", "variable"]
+    },
+    {
+      "name": "ClaudeProvider",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 5,
+      "keywords": ["ClaudeProvider", "struct"]
+    },
+    {
+      "name": "ChatMessage",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 195,
+      "keywords": ["ChatMessage", "struct"]
+    },
+    {
+      "name": "ChatCompletionResponse",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 200,
+      "keywords": ["ChatCompletionResponse", "struct"]
+    },
+    {
+      "name": "CodeCompletionResponse",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 206,
+      "keywords": ["CodeCompletionResponse", "struct"]
+    },
+    {
+      "name": "Usage",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 212,
+      "keywords": ["Usage", "struct"]
+    },
+    {
+      "name": "StreamChunk",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 218,
+      "keywords": ["StreamChunk", "struct"]
+    },
+    {
+      "name": "StreamCallback",
+      "type": "variable",
+      "file": "src/providers/claude.zig",
+      "line": 224,
+      "keywords": ["StreamCallback", "variable"]
+    },
+    {
+      "name": "ChatCompletionError",
+      "type": "error",
+      "file": "src/providers/claude.zig",
+      "line": 226,
+      "keywords": ["ChatCompletionError", "error"]
+    },
+    {
+      "name": "ClaudeMessage",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 236,
+      "keywords": ["ClaudeMessage", "struct"]
+    },
+    {
+      "name": "ClaudeResponse",
+      "type": "struct",
+      "file": "src/providers/claude.zig",
+      "line": 241,
+      "keywords": ["ClaudeResponse", "struct"]
+    }
+  ]
+}

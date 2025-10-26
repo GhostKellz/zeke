@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/storage/conversation_store.zig",
+      "line": 1,
+      "keywords": ["std", "variable"]
+    },
+    {
+      "name": "Database",
+      "type": "variable",
+      "file": "src/storage/conversation_store.zig",
+      "line": 2,
+      "keywords": ["Database", "variable"]
+    },
+    {
+      "name": "Conversation",
+      "type": "variable",
+      "file": "src/storage/conversation_store.zig",
+      "line": 3,
+      "keywords": ["Conversation", "variable"]
+    },
+    {
+      "name": "Message",
+      "type": "variable",
+      "file": "src/storage/conversation_store.zig",
+      "line": 4,
+      "keywords": ["Message", "variable"]
+    },
+    {
+      "name": "zqlite",
+      "type": "variable",
+      "file": "src/storage/conversation_store.zig",
+      "line": 5,
+      "keywords": ["zqlite", "variable"]
+    },
+    {
+      "name": "ConversationStore",
+      "type": "struct",
+      "file": "src/storage/conversation_store.zig",
+      "line": 7,
+      "keywords": ["ConversationStore", "struct"]
+    }
+  ]
+}

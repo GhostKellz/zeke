@@ -1,8 +1,8 @@
 # Zig build artifacts
-/zig-out/
-/zig-cache/
+zig-out/
+zig-cache/
 .zig-cache/
-
+archive/
 # Zig generated files
 *.orig
 *.tmp
@@ -23,6 +23,7 @@
 # Configuration files with secrets
 *config*.toml
 !*config*.example.toml
+!zeke.toml.example
 
 # Logs
 *.log

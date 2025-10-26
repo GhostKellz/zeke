@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "name": "std",
+      "type": "variable",
+      "file": "src/tools/smart_git.zig",
+      "line": 5,
+      "description": "Smart Git Tools - Zap Integration",
+      "keywords": ["std", "variable", "Smart", "Git", "Tools", "Zap", "Integration"]
+    },
+    {
+      "name": "zeke",
+      "type": "variable",
+      "file": "src/tools/smart_git.zig",
+      "line": 6,
+      "keywords": ["zeke", "variable"]
+    },
+    {
+      "name": "git_ops",
+      "type": "variable",
+      "file": "src/tools/smart_git.zig",
+      "line": 7,
+      "keywords": ["git_ops", "variable"]
+    },
+    {
+      "name": "SmartGit",
+      "type": "struct",
+      "file": "src/tools/smart_git.zig",
+      "line": 10,
+      "keywords": ["SmartGit", "struct"]
+    }
+  ]
+}

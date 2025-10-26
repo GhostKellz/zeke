@@ -30,7 +30,7 @@ zeke serve --config /path/to/config.json
 
 ```bash
 curl http://localhost:7878/health
-# {"status":"ok","version":"0.2.8"}
+# {"status":"ok","version":"0.3.0"}
 ```
 
 ## Base Configuration
@@ -100,7 +100,7 @@ Check if the server is running.
 ```json
 {
   "status": "ok",
-  "version": "0.2.8"
+  "version": "0.3.0"
 }
 ```
 
