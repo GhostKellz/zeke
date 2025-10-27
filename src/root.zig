@@ -40,6 +40,8 @@ pub const storage = @import("storage/mod.zig");
 pub const watch = @import("watch.zig");
 pub const integrations = @import("integrations/mod.zig");
 pub const mcp = @import("mcp/mod.zig");
+// TODO: Temporarily commented out until circular dependency is resolved
+// pub const tools = @import("tools/mod.zig");
 
 pub const ZekeError = error{
     InitializationFailed,

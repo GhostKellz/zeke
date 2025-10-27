@@ -95,7 +95,8 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
 
     // Parse and handle commands
     if (args.len < 2) {
-        try printUsage();
+        const help = @import("cli/help.zig");
+        try help.showHelp(allocator);
         return;
     }
 
@@ -193,13 +194,49 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
         try zeke.watch.runWatchMode(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "doctor")) {
         const doctor = @import("cli/doctor.zig");
-        try doctor.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+        try doctor.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, command, "completion")) {
+        const completions = @import("cli/completions.zig");
+        if (args.len > 2) {
+            if (completions.Shell.fromString(args[2])) |shell| {
+                try completions.generateCompletions(allocator, shell);
+            } else {
+                std.debug.print("Unknown shell: {s}\n", .{args[2]});
+                std.debug.print("Supported: bash, zsh, fish\n", .{});
+            }
+        } else {
+            std.debug.print("Usage: zeke completion <shell>\n", .{});
+            std.debug.print("Shells: bash, zsh, fish\n", .{});
+        }
+    } else if (std.mem.eql(u8, command, "help") or std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h")) {
+        const help = @import("cli/help.zig");
+        if (args.len > 2) {
+            try help.showCommandHelp(allocator, args[2]);
+        } else {
+            try help.showHelp(allocator);
+        }
+    } else if (std.mem.eql(u8, command, "version") or std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "-v")) {
+        std.debug.print("⚡ ZEKE - The Zig-Native AI Dev Companion\n", .{});
+        std.debug.print("Ready to assist with your coding workflow!\n", .{});
+        std.debug.print("ZEKE v{s}\n", .{VERSION});
     } else if (std.mem.eql(u8, command, "glyph")) {
         const glyph = @import("cli/glyph.zig");
         try glyph.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "serve")) {
         const serve = @import("cli/serve.zig");
         try serve.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "edit")) {
+        const edit = @import("cli/edit.zig");
+        try edit.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "refactor")) {
+        const refactor = @import("cli/refactor.zig");
+        try refactor.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "analyze")) {
+        const analyze = @import("cli/analyze.zig");
+        try analyze.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "generate")) {
+        const generate = @import("cli/generate.zig");
+        try generate.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "tui")) {
         try handleTui(&zeke_instance, allocator);
     } else if (std.mem.eql(u8, command, "nvim")) {
@@ -750,6 +787,14 @@ fn handleProviderList() !void {
     std.debug.print("  • xai - xAI Grok models\n", .{});
     std.debug.print("  • azure - Azure OpenAI\n", .{});
     std.debug.print("  • ollama - Local Ollama instance\n", .{});
+}
+
+/// Check if a flag exists in args
+fn hasFlag(args: []const [:0]u8, flag: []const u8) bool {
+    for (args) |arg| {
+        if (std.mem.eql(u8, arg, flag)) return true;
+    }
+    return false;
 }
 
 fn handleStreamChat(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, message: []const u8) !void {

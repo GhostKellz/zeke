@@ -19,7 +19,9 @@ pub const Help = struct {
 
     pub fn init(allocator: std.mem.Allocator) Help {
         // Detect if stdout is a TTY
-        const use_color = std.io.getStdOut().isTty();
+        const stdout_file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
+        const config = std.Io.tty.detectConfig(stdout_file);
+        const use_color = config != .no_color;
         return .{
             .allocator = allocator,
             .use_color = use_color,
@@ -27,7 +29,10 @@ pub const Help = struct {
     }
 
     pub fn showMain(self: Help) !void {
-        const stdout = std.io.getStdOut().writer();
+        const stdout_file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
+        var buf: [8192]u8 = undefined;
+        var writer_struct = stdout_file.writer(&buf);
+        const stdout = &writer_struct.interface;
 
         try self.printHeader(stdout);
         try stdout.writeAll("\n");
@@ -40,6 +45,7 @@ pub const Help = struct {
         try self.printExamples(stdout);
         try stdout.writeAll("\n");
         try self.printFooter(stdout);
+        try stdout.flush();
     }
 
     fn printHeader(self: Help, writer: anytype) !void {
@@ -190,7 +196,10 @@ pub const Help = struct {
 
     /// Show help for specific command
     pub fn showCommand(self: Help, command: []const u8) !void {
-        const stdout = std.io.getStdOut().writer();
+        const stdout_file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
+        var buf: [8192]u8 = undefined;
+        var writer_struct = stdout_file.writer(&buf);
+        const stdout = &writer_struct.interface;
 
         if (std.mem.eql(u8, command, "chat")) {
             try self.showChatHelp(stdout);
@@ -205,9 +214,10 @@ pub const Help = struct {
         } else if (std.mem.eql(u8, command, "edit")) {
             try self.showEditHelp(stdout);
         } else {
-            try writer.print("No detailed help available for '{s}'\n", .{command});
-            try writer.writeAll("Run 'zeke --help' for general help\n");
+            try stdout.print("No detailed help available for '{s}'\n", .{command});
+            try stdout.writeAll("Run 'zeke --help' for general help\n");
         }
+        try stdout.flush();
     }
 
     fn showChatHelp(self: Help, writer: anytype) !void {

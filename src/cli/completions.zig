@@ -264,7 +264,12 @@ pub const Shell = enum {
 
 /// Main entry point for completion command
 pub fn generateCompletions(allocator: std.mem.Allocator, shell: Shell) !void {
-    const stdout = std.io.getStdOut().writer();
+    const stdout_file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
+    var buf: [8192]u8 = undefined;
+    var writer_struct = stdout_file.writer(&buf);
+    const stdout = &writer_struct.interface;
+
     const completions = Completions.init(allocator);
     try completions.generate(shell, stdout);
+    try stdout.flush();
 }
