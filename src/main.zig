@@ -132,13 +132,6 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
         } else {
             std.debug.print("Usage: zeke debug \"error description\"\n", .{});
         }
-    } else if (std.mem.eql(u8, command, "analyze")) {
-        if (args.len > 3) {
-            try handleAnalyze(&zeke_instance, allocator, args[2], args[3]);
-        } else {
-            std.debug.print("Usage: zeke analyze <file> <type>\n", .{});
-            std.debug.print("Types: performance, security, style, quality, architecture\n", .{});
-        }
     } else if (std.mem.eql(u8, command, "model")) {
         if (args.len > 2) {
             if (std.mem.eql(u8, args[2], "list")) {
