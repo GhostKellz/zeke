@@ -60,8 +60,8 @@
             .hash = "zap-0.1.0--jHF1uDGAQAYX2E8H_F70MbwPXANmOevSfOForA2n-ay",
         },
         .grove = .{
-            .url = "https://github.com/ghostkellz/grove/archive/main.tar.gz",
-            .hash = "grove-0.1.1-rGFsN9wr6QRA8itbDIdvhfNW5zGabtBbcwHEFCK3hNxB",
+            .url = "https://github.com/ghostkellz/grove/archive/refs/heads/main.tar.gz",
+            .hash = "grove-0.2.0-rGFsN0Tq6QTEsvGnA667q1GaWiXEJRPS6xkhjWgU22-L",
         },
         .rune = .{
             .url = "https://github.com/ghostkellz/rune/archive/refs/heads/main.tar.gz",
