@@ -230,6 +230,9 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
     } else if (std.mem.eql(u8, command, "generate")) {
         const generate = @import("cli/generate.zig");
         try generate.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "index")) {
+        const index_cli = @import("cli/index.zig");
+        try index_cli.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "tui")) {
         try handleTui(&zeke_instance, allocator);
     } else if (std.mem.eql(u8, command, "nvim")) {

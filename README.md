@@ -48,6 +48,7 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 * 🔌 **Extensible:** CLI, TUI, and plugin API for automation, batch, and scripting
 * 👁️ **Watch Mode (Revolutionary):** Real-time file watching with Grove AST, AI-powered fix suggestions, and auto-commit
 * 📋 **TODO Tracker:** Intelligent TODO comment detection with priorities, categories, assignees, and issue tracking
+* 🔍 **Codebase Indexing:** Fast symbol search, fuzzy matching, and AI context gathering across multi-language projects
 
 ---
 
@@ -126,6 +127,29 @@ Switch between AI providers and models live:
 * `:Zeke explain` — Ask for code explanation
 * `:Zeke test` — Ask for test cases
 * `/model claude-3.5` — Change AI backend live
+
+### Codebase Indexing (New!)
+```sh
+# Index your project for fast symbol search
+zeke index build
+
+# Search for symbols across your codebase
+zeke index search "handleRequest"
+
+# Find exact symbol by name
+zeke index find "calculateTotal"
+
+# Get relevant files for a task (AI context gathering)
+zeke index context "implement user authentication"
+
+# List all functions/structs/classes
+zeke index functions
+zeke index structs
+zeke index classes
+
+# Show index statistics
+zeke index stats
+```
 
 ### Watch Mode (Revolutionary!)
 ```sh
