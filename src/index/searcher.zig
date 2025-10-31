@@ -28,6 +28,7 @@ pub const Searcher = struct {
                             .file_path = file.path,
                             .symbol = symbol,
                             .relevance_score = score,
+                            .file_mtime = file.last_modified,
                         });
                     }
                 }
@@ -60,6 +61,7 @@ pub const Searcher = struct {
                         .file_path = file.path,
                         .symbol = symbol,
                         .relevance_score = 1.0,
+                        .file_mtime = file.last_modified,
                     });
                 }
             }
@@ -82,6 +84,7 @@ pub const Searcher = struct {
                         .file_path = file.path,
                         .symbol = symbol,
                         .relevance_score = 1.0,
+                        .file_mtime = file.last_modified,
                     };
                 }
             }

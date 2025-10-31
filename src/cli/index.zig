@@ -76,7 +76,14 @@ fn handleSearch(allocator: std.mem.Allocator, root_path: []const u8, query: []co
     var results = try idx.search(query, 100);
     defer results.deinit(allocator);
 
-    Index.printSearchResults(results.items, limit);
+    if (results.items.len > limit) {
+        const truncated_results = results.items[0..limit];
+        Index.printSearchResults(truncated_results, limit);
+        std.debug.print("\n  💡 Showing {} of {} results (sorted by relevance & recency)\n", .{ limit, results.items.len });
+        std.debug.print("     Use a more specific query to narrow results\n\n", .{});
+    } else {
+        Index.printSearchResults(results.items, limit);
+    }
 }
 
 fn handleFind(allocator: std.mem.Allocator, root_path: []const u8, name: []const u8) !void {

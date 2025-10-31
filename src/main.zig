@@ -236,6 +236,9 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
     } else if (std.mem.eql(u8, command, "lsp")) {
         const lsp_cli = @import("cli/lsp.zig");
         try lsp_cli.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
+    } else if (std.mem.eql(u8, command, "daemon")) {
+        const daemon_cli = @import("cli/daemon.zig");
+        try daemon_cli.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "tui")) {
         try handleTui(&zeke_instance, allocator);
     } else if (std.mem.eql(u8, command, "nvim")) {

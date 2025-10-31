@@ -5,6 +5,7 @@ const types = @import("types.zig");
 const Walker = @import("walker.zig").Walker;
 const Parser = @import("parser.zig").Parser;
 const Searcher = @import("searcher.zig").Searcher;
+const SearchCache = @import("cache.zig").SearchCache;
 
 pub const Index = struct {
     allocator: std.mem.Allocator,
@@ -12,6 +13,7 @@ pub const Index = struct {
     walker: Walker,
     parser: Parser,
     searcher: Searcher,
+    cache: SearchCache,
     root_path: []const u8,
 
     pub fn init(allocator: std.mem.Allocator, root_path: []const u8) !Index {
@@ -21,6 +23,7 @@ pub const Index = struct {
             .walker = Walker.init(allocator),
             .parser = Parser.init(allocator),
             .searcher = Searcher.init(allocator),
+            .cache = SearchCache.init(allocator),
             .root_path = try allocator.dupe(u8, root_path),
         };
     }
@@ -31,6 +34,7 @@ pub const Index = struct {
         }
         self.files.deinit(self.allocator);
         self.walker.deinit();
+        self.cache.deinit();
         self.allocator.free(self.root_path);
     }
 
@@ -77,9 +81,103 @@ pub const Index = struct {
         std.debug.print("  Total symbols: {}\n", .{self.getTotalSymbols()});
     }
 
-    /// Search for symbols
+    /// Update a single file in the index (incremental update)
+    pub fn updateFile(self: *Index, file_path: []const u8) !void {
+        const ext = std.fs.path.extension(file_path);
+        const language = types.Language.fromExtension(ext);
+
+        if (language == .unknown) return;
+
+        // Find existing file in index
+        var found_index: ?usize = null;
+        for (self.files.items, 0..) |file, i| {
+            if (std.mem.eql(u8, file.path, file_path)) {
+                found_index = i;
+                break;
+            }
+        }
+
+        // Parse the file
+        const indexed_file = self.parser.parseFile(file_path, language) catch |err| {
+            std.debug.print("Warning: Failed to parse {s}: {}\n", .{ file_path, err });
+            return err;
+        };
+
+        if (found_index) |idx| {
+            // Replace existing file
+            self.files.items[idx].deinit(self.allocator);
+            self.files.items[idx] = indexed_file;
+            std.debug.print("Updated file in index: {s}\n", .{file_path});
+        } else {
+            // Add new file
+            try self.files.append(self.allocator, indexed_file);
+            std.debug.print("Added file to index: {s}\n", .{file_path});
+        }
+
+        // Invalidate cache entries for this file
+        self.cache.invalidateFile(file_path);
+    }
+
+    /// Remove a file from the index
+    pub fn removeFile(self: *Index, file_path: []const u8) void {
+        var i: usize = 0;
+        while (i < self.files.items.len) {
+            if (std.mem.eql(u8, self.files.items[i].path, file_path)) {
+                var removed = self.files.orderedRemove(i);
+                removed.deinit(self.allocator);
+                std.debug.print("Removed file from index: {s}\n", .{file_path});
+
+                // Invalidate cache entries for this file
+                self.cache.invalidateFile(file_path);
+                return;
+            }
+            i += 1;
+        }
+    }
+
+    /// Check if file is already indexed
+    pub fn containsFile(self: *Index, file_path: []const u8) bool {
+        for (self.files.items) |file| {
+            if (std.mem.eql(u8, file.path, file_path)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Search for symbols (with caching)
     pub fn search(self: *Index, query: []const u8, max_results: usize) !std.ArrayList(types.SearchResult) {
-        return self.searcher.search(self.files.items, query, max_results);
+        // Try cache first
+        if (self.cache.get(query)) |cached_results| {
+            std.debug.print("🎯 Cache hit for query: {s}\n", .{query});
+            var results = std.ArrayList(types.SearchResult).empty;
+
+            // Return up to max_results from cache
+            const count = @min(max_results, cached_results.len);
+            for (cached_results[0..count]) |result| {
+                try results.append(self.allocator, result);
+            }
+
+            return results;
+        }
+
+        // Cache miss - perform search
+        std.debug.print("🔍 Cache miss for query: {s}\n", .{query});
+        const results = try self.searcher.search(self.files.items, query, max_results);
+
+        // Store in cache (don't store if results are empty)
+        if (results.items.len > 0) {
+            self.cache.put(query, results.items) catch |err| {
+                std.debug.print("Warning: Failed to cache results: {}\n", .{err});
+            };
+        }
+
+        return results;
+    }
+
+    /// Get cache statistics
+    pub fn getCacheStats(self: *Index) @import("cache.zig").CacheStats {
+        return self.cache.getStats();
     }
 
     /// Search by symbol kind
@@ -118,6 +216,7 @@ pub const Index = struct {
     /// Print index statistics
     pub fn printStats(self: *Index) void {
         var stats = self.getStats();
+        const cache_stats = self.cache.getStats();
 
         std.debug.print("\n📊 Index Statistics\n", .{});
         std.debug.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n", .{});
@@ -132,6 +231,12 @@ pub const Index = struct {
                 std.debug.print("    {s}: {} files\n", .{ @tagName(entry.key), entry.value.* });
             }
         }
+
+        std.debug.print("\n  Cache:\n", .{});
+        std.debug.print("    Entries:   {}\n", .{cache_stats.entries});
+        std.debug.print("    Hits:      {}\n", .{cache_stats.hits});
+        std.debug.print("    Misses:    {}\n", .{cache_stats.misses});
+        std.debug.print("    Hit rate:  {d:.1}%\n", .{cache_stats.hit_rate * 100.0});
         std.debug.print("\n", .{});
     }
 

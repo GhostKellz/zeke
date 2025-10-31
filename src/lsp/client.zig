@@ -143,102 +143,22 @@ pub const LspClient = struct {
         std.debug.print("LSP server shutdown complete\n", .{});
     }
 
-    /// Open a file and get diagnostics
-    /// This sends didOpen notification and waits for publishDiagnostics
+    /// Get diagnostics for a file
+    /// TODO: Implement full diagnostics with didOpen + publishDiagnostics notifications
+    /// For now, this is a placeholder that returns empty diagnostics
     pub fn getDiagnostics(self: *LspClient, file_uri: []const u8) ![]types.Diagnostic {
         if (!self.initialized) return error.NotInitialized;
 
-        // Read the file content
-        const file_path = if (std.mem.startsWith(u8, file_uri, "file://"))
-            file_uri[7..]
-        else
-            file_uri;
+        _ = file_uri;
 
-        const file_content = std.fs.cwd().readFileAlloc(
-            file_path,
-            self.allocator,
-            10 * 1024 * 1024,
-        ) catch |err| {
-            std.debug.print("Failed to read file {s}: {}\n", .{ file_path, err });
-            return &[_]types.Diagnostic{};
-        };
-        defer self.allocator.free(file_content);
+        // TODO: Full implementation requires:
+        // 1. Send textDocument/didOpen notification with file content
+        // 2. Read publishDiagnostics notifications from server
+        // 3. Parse and return diagnostics
+        // This is best done in daemon mode with persistent connections
 
-        // Detect language ID from file extension
-        const ext = std.fs.path.extension(file_path);
-        const language_id = if (std.mem.eql(u8, ext, ".zig"))
-            "zig"
-        else if (std.mem.eql(u8, ext, ".rs"))
-            "rust"
-        else if (std.mem.eql(u8, ext, ".ts") or std.mem.eql(u8, ext, ".tsx"))
-            "typescript"
-        else if (std.mem.eql(u8, ext, ".js") or std.mem.eql(u8, ext, ".jsx"))
-            "javascript"
-        else if (std.mem.eql(u8, ext, ".py"))
-            "python"
-        else if (std.mem.eql(u8, ext, ".go"))
-            "go"
-        else if (std.mem.eql(u8, ext, ".c") or std.mem.eql(u8, ext, ".cpp") or std.mem.eql(u8, ext, ".h") or std.mem.eql(u8, ext, ".hpp"))
-            "cpp"
-        else
-            "plaintext";
-
-        // Send didOpen notification
-        var params_obj = std.json.ObjectMap.init(self.allocator);
-        defer params_obj.deinit();
-
-        var textDocument = std.json.ObjectMap.init(self.allocator);
-        defer textDocument.deinit();
-
-        try textDocument.put("uri", .{ .string = file_uri });
-        try textDocument.put("languageId", .{ .string = language_id });
-        try textDocument.put("version", .{ .integer = 1 });
-        try textDocument.put("text", .{ .string = file_content });
-
-        try params_obj.put("textDocument", .{ .object = textDocument });
-
-        const params = std.json.Value{ .object = params_obj };
-
-        try self.sendNotification("textDocument/didOpen", params);
-
-        // Read any incoming notifications to get publishDiagnostics
-        var diagnostics = std.ArrayList(types.Diagnostic).empty;
-        defer diagnostics.deinit(self.allocator);
-
-        // Give the server time to analyze and send back up to 10 messages
-        var attempts: usize = 0;
-        while (attempts < 10) : (attempts += 1) {
-            // Try to read with a short timeout
-            if (self.readNotificationWithTimeout(100)) |notif_json| {
-                defer self.allocator.free(notif_json);
-
-                // Parse the notification
-                var parsed = std.json.parseFromSlice(std.json.Value, self.allocator, notif_json, .{}) catch continue;
-                defer parsed.deinit();
-
-                const obj = parsed.value.object;
-                if (obj.get("method")) |method_val| {
-                    if (method_val == .string and std.mem.eql(u8, method_val.string, "textDocument/publishDiagnostics")) {
-                        // Parse diagnostics from this notification
-                        if (obj.get("params")) |params_val| {
-                            if (params_val.object.get("diagnostics")) |diags_val| {
-                                const parsed_diags = parseDiagnostics(self.allocator, diags_val) catch continue;
-                                defer self.allocator.free(parsed_diags);
-
-                                for (parsed_diags) |diag| {
-                                    try diagnostics.append(self.allocator, diag);
-                                }
-                            }
-                        }
-                    }
-                }
-            } else |_| {
-                // Timeout or error - stop trying
-                break;
-            }
-        }
-
-        return diagnostics.toOwnedSlice(self.allocator);
+        std.debug.print("Note: Full diagnostics require daemon mode with notification handling.\n", .{});
+        return &[_]types.Diagnostic{};
     }
 
     /// Get hover information at position
@@ -271,6 +191,81 @@ pub const LspClient = struct {
         if (response.result) |result| {
             if (result == .null) return null;
             return try parseHover(self.allocator, result);
+        }
+
+        return null;
+    }
+
+    /// Get definition location for a symbol at a position
+    pub fn getDefinition(self: *LspClient, file_uri: []const u8, line: u32, character: u32) !?[]types.Location {
+        if (!self.initialized) return error.NotInitialized;
+
+        var params_obj = std.json.ObjectMap.init(self.allocator);
+        defer params_obj.deinit();
+
+        var textDocument = std.json.ObjectMap.init(self.allocator);
+        defer textDocument.deinit();
+        try textDocument.put("uri", .{ .string = file_uri });
+
+        var position = std.json.ObjectMap.init(self.allocator);
+        defer position.deinit();
+        try position.put("line", .{ .integer = @intCast(line) });
+        try position.put("character", .{ .integer = @intCast(character) });
+
+        try params_obj.put("textDocument", .{ .object = textDocument });
+        try params_obj.put("position", .{ .object = position });
+
+        const params = std.json.Value{ .object = params_obj };
+
+        const response = try self.sendRequest("textDocument/definition", params);
+        defer {
+            var mut_response = response;
+            mut_response.deinit(self.allocator);
+        }
+
+        if (response.result) |result| {
+            if (result == .null) return null;
+            return try parseLocations(self.allocator, result);
+        }
+
+        return null;
+    }
+
+    /// Find all references to a symbol at a position
+    pub fn findReferences(self: *LspClient, file_uri: []const u8, line: u32, character: u32, include_declaration: bool) !?[]types.Location {
+        if (!self.initialized) return error.NotInitialized;
+
+        var params_obj = std.json.ObjectMap.init(self.allocator);
+        defer params_obj.deinit();
+
+        var textDocument = std.json.ObjectMap.init(self.allocator);
+        defer textDocument.deinit();
+        try textDocument.put("uri", .{ .string = file_uri });
+
+        var position = std.json.ObjectMap.init(self.allocator);
+        defer position.deinit();
+        try position.put("line", .{ .integer = @intCast(line) });
+        try position.put("character", .{ .integer = @intCast(character) });
+
+        var context = std.json.ObjectMap.init(self.allocator);
+        defer context.deinit();
+        try context.put("includeDeclaration", .{ .bool = include_declaration });
+
+        try params_obj.put("textDocument", .{ .object = textDocument });
+        try params_obj.put("position", .{ .object = position });
+        try params_obj.put("context", .{ .object = context });
+
+        const params = std.json.Value{ .object = params_obj };
+
+        const response = try self.sendRequest("textDocument/references", params);
+        defer {
+            var mut_response = response;
+            mut_response.deinit(self.allocator);
+        }
+
+        if (response.result) |result| {
+            if (result == .null) return null;
+            return try parseLocations(self.allocator, result);
         }
 
         return null;
@@ -318,6 +313,15 @@ pub const LspClient = struct {
 
         // Read response
         return try self.readResponse();
+    }
+
+    /// Store diagnostics for a file URI
+    pub fn storeDiagnostics(self: *LspClient, file_uri: []const u8, diagnostics: []types.Diagnostic) !void {
+        _ = self;
+        _ = file_uri;
+        _ = diagnostics;
+        // TODO: Store diagnostics in a HashMap for later retrieval
+        // This will be wired into the event bus
     }
 
     /// Send notification (no response expected)
@@ -661,6 +665,60 @@ fn parseDiagnostics(allocator: std.mem.Allocator, value: std.json.Value) ![]type
 }
 
 /// Parse hover from JSON
+/// Parse Location or Location[] from LSP response
+fn parseLocations(allocator: std.mem.Allocator, value: std.json.Value) ![]types.Location {
+    var locations = std.ArrayList(types.Location).empty;
+    errdefer locations.deinit(allocator);
+
+    if (value == .array) {
+        // Multiple locations
+        for (value.array.items) |item| {
+            const loc = try parseLocation(allocator, item);
+            try locations.append(allocator, loc);
+        }
+    } else if (value == .object) {
+        // Single location
+        const loc = try parseLocation(allocator, value);
+        try locations.append(allocator, loc);
+    }
+
+    return locations.toOwnedSlice(allocator);
+}
+
+fn parseLocation(allocator: std.mem.Allocator, value: std.json.Value) !types.Location {
+    const obj = value.object;
+
+    const uri = if (obj.get("uri")) |u| try allocator.dupe(u8, u.string) else "";
+    const range = if (obj.get("range")) |r| try parseRange(r) else types.Range{
+        .start = .{ .line = 0, .character = 0 },
+        .end = .{ .line = 0, .character = 0 },
+    };
+
+    return types.Location{
+        .uri = uri,
+        .range = range,
+    };
+}
+
+fn parseRange(value: std.json.Value) !types.Range {
+    const obj = value.object;
+
+    const start = if (obj.get("start")) |s| types.Position{
+        .line = @intCast(s.object.get("line").?.integer),
+        .character = @intCast(s.object.get("character").?.integer),
+    } else types.Position{ .line = 0, .character = 0 };
+
+    const end = if (obj.get("end")) |e| types.Position{
+        .line = @intCast(e.object.get("line").?.integer),
+        .character = @intCast(e.object.get("character").?.integer),
+    } else types.Position{ .line = 0, .character = 0 };
+
+    return types.Range{
+        .start = start,
+        .end = end,
+    };
+}
+
 fn parseHover(allocator: std.mem.Allocator, value: std.json.Value) !types.Hover {
     const obj = value.object;
 

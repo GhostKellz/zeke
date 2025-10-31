@@ -183,6 +183,10 @@ pub const Config = struct {
     pub fn deinit(self: *Self) void {
         self.models.deinit(self.allocator);
 
+        // Free provider config strings
+        self.allocator.free(self.providers.default_provider);
+        self.allocator.free(self.default_model);
+
         if (self.anthropic_api_key) |key| {
             self.allocator.free(key);
         }

@@ -93,8 +93,15 @@ pub const SearchResult = struct {
     file_path: []const u8,
     symbol: Symbol,
     relevance_score: f32,
+    file_mtime: i64, // For recency-based ranking
 
     pub fn lessThan(_: void, a: SearchResult, b: SearchResult) bool {
+        // If scores are very close (within 5%), use mtime as tiebreaker
+        const score_diff = @abs(a.relevance_score - b.relevance_score);
+        if (score_diff < 5.0) {
+            // More recent files first
+            return a.file_mtime > b.file_mtime;
+        }
         return a.relevance_score > b.relevance_score; // Higher score first
     }
 };

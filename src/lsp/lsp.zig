@@ -13,12 +13,14 @@ pub const DiagnosticSeverity = types.DiagnosticSeverity;
 pub const Hover = types.Hover;
 pub const Position = types.Position;
 pub const Range = types.Range;
+pub const Location = types.Location;
 
 /// LSP Manager - Manages multiple LSP servers
 pub const LspManager = struct {
     allocator: std.mem.Allocator,
     clients: std.StringHashMap(*LspClient),
     server_configs: []ServerConfig,
+    diagnostic_aggregator: ?*@import("diagnostics.zig").DiagnosticAggregator,
 
     pub fn init(allocator: std.mem.Allocator) !LspManager {
         const configs = try types.getDefaultServers(allocator);
@@ -27,7 +29,18 @@ pub const LspManager = struct {
             .allocator = allocator,
             .clients = std.StringHashMap(*LspClient).init(allocator),
             .server_configs = configs,
+            .diagnostic_aggregator = null,
         };
+    }
+
+    /// Enable diagnostic aggregation (optional feature)
+    pub fn enableDiagnostics(self: *LspManager) !void {
+        if (self.diagnostic_aggregator != null) return;
+
+        const diag_mod = @import("diagnostics.zig");
+        const aggregator = try self.allocator.create(diag_mod.DiagnosticAggregator);
+        aggregator.* = diag_mod.DiagnosticAggregator.init(self.allocator);
+        self.diagnostic_aggregator = aggregator;
     }
 
     pub fn deinit(self: *LspManager) void {
@@ -44,6 +57,11 @@ pub const LspManager = struct {
             // filetypes and rootPatterns are static const slices, don't free them
         }
         self.allocator.free(self.server_configs);
+
+        if (self.diagnostic_aggregator) |aggregator| {
+            aggregator.deinit();
+            self.allocator.destroy(aggregator);
+        }
     }
 
     /// Get or create LSP client for a file
@@ -112,6 +130,39 @@ pub const LspManager = struct {
         defer self.allocator.free(file_uri);
 
         return try lsp_client.getHover(file_uri, line, character);
+    }
+
+    /// Get definition for a position in a file
+    pub fn getDefinitionForPosition(
+        self: *LspManager,
+        file_path: []const u8,
+        root_path: []const u8,
+        line: u32,
+        character: u32,
+    ) !?[]types.Location {
+        const lsp_client = try self.getClientForFile(file_path, root_path) orelse return null;
+
+        const file_uri = try std.fmt.allocPrint(self.allocator, "file://{s}", .{file_path});
+        defer self.allocator.free(file_uri);
+
+        return try lsp_client.getDefinition(file_uri, line, character);
+    }
+
+    /// Find references for a position in a file
+    pub fn getReferencesForPosition(
+        self: *LspManager,
+        file_path: []const u8,
+        root_path: []const u8,
+        line: u32,
+        character: u32,
+        include_declaration: bool,
+    ) !?[]types.Location {
+        const lsp_client = try self.getClientForFile(file_path, root_path) orelse return null;
+
+        const file_uri = try std.fmt.allocPrint(self.allocator, "file://{s}", .{file_path});
+        defer self.allocator.free(file_uri);
+
+        return try lsp_client.findReferences(file_uri, line, character, include_declaration);
     }
 
     /// Shutdown all LSP servers

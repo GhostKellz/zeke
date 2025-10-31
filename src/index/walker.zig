@@ -27,24 +27,58 @@ pub const Walker = struct {
         try self.ignore_patterns.append(self.allocator, owned);
     }
 
-    /// Add default ignore patterns
+    /// Add default ignore patterns (comprehensive list from OpenCode + Zeke-specific)
     pub fn addDefaultIgnores(self: *Walker) !void {
         const defaults = [_][]const u8{
+            // Version control
             ".git",
             ".hg",
             ".svn",
+
+            // Package managers & dependencies
             "node_modules",
+            "bower_components",
+            ".pnpm-store",
+            "vendor",
+
+            // Build outputs
+            "dist",
+            "build",
+            "out",
             "target",
+            "bin",
+            "obj",
             "zig-cache",
             "zig-out",
             ".zig-cache",
-            "build",
-            "dist",
+
+            // Framework specific
+            ".next",
+            ".turbo",
+            ".output",
+            ".sst",
+            "desktop",
+
+            // IDE/Editor
+            ".vscode",
+            ".idea",
+
+            // Python
             "__pycache__",
             ".pytest_cache",
             ".venv",
             "venv",
+            ".nyc_output",
+            "coverage",
+
+            // OS files
             ".DS_Store",
+            "Thumbs.db",
+
+            // Temp/logs
+            "logs",
+            "tmp",
+            "temp",
         };
 
         for (defaults) |pattern| {
