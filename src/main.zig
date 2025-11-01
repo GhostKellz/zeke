@@ -11,7 +11,7 @@ const git_ops = zeke.git;
 const search = zeke.search;
 
 // Version will be set by build system
-const VERSION = "0.3.0";
+const VERSION = "0.3.2";
 const build_ops = zeke.build;
 
 // Simple command structure for ZEKE AI
@@ -1664,8 +1664,8 @@ fn printUsage() !void {
     std.debug.print("\n🚀 Providers: claude, openai, copilot, ollama, xai, google, azure\n", .{});
     std.debug.print("🔍 Analysis: performance, security, style, quality, architecture\n", .{});
     std.debug.print("\n✨ v{s} Features:\n", .{VERSION});
-    std.debug.print("  • Multi-provider authentication with OAuth\n", .{});
-    std.debug.print("  • Smart provider routing with fallbacks\n", .{});
-    std.debug.print("  • Real-time streaming responses\n", .{});
-    std.debug.print("  • Enhanced error handling & health monitoring\n", .{});
+    std.debug.print("  • GitHub Copilot Pro OAuth with 19+ models\n", .{});
+    std.debug.print("  • Tokyo Night themes (Night/Moon/Storm)\n", .{});
+    std.debug.print("  • Secure API key storage in keyring\n", .{});
+    std.debug.print("  • Smart model routing\n", .{});
 }
