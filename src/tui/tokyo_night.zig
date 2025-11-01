@@ -466,9 +466,11 @@ pub const WelcomeScreen = struct {
         try writer.writeAll("─" ** 77);
         try writer.writeAll("┐\n");
 
-        // Title: "ZEKE v0.3.2" centered
+        // Title: "⚡ ZEKE v0.3.2" centered
         try writer.writeAll("│");
-        try writer.writeAll(" " ** 30);
+        try writer.writeAll(" " ** 28);
+        try writer.writeAll(c.logo_primary);
+        try writer.writeAll("⚡ ");
         try writer.writeAll(c.header_text);
         try writer.writeAll(c.bold);
         try writer.writeAll("ZEKE v0.3.2");
@@ -493,9 +495,9 @@ pub const WelcomeScreen = struct {
         try writer.writeAll(c.border_color);
         try writer.writeAll("│ ");
         try writer.writeAll("┌");
-        try writer.writeAll("─" ** 24);
+        try writeSpaces(writer, 24);
         try writer.writeAll("┬");
-        try writer.writeAll("─" ** 49);
+        try writeSpaces(writer, 49);
         try writer.writeAll("┐");
         try writer.writeAll(" │\n");
 
@@ -510,9 +512,9 @@ pub const WelcomeScreen = struct {
         try writer.writeAll(c.border_color);
         try writer.writeAll("│ ");
         try writer.writeAll("└");
-        try writer.writeAll("─" ** 24);
+        try writeSpaces(writer, 24);
         try writer.writeAll("┴");
-        try writer.writeAll("─" ** 49);
+        try writeSpaces(writer, 49);
         try writer.writeAll("┘");
         try writer.writeAll(" │\n");
         try writer.writeAll(c.reset);
@@ -580,8 +582,8 @@ pub const WelcomeScreen = struct {
                 try writer.writeAll(" " ** 13);
             } else if (i == 1) {
                 try writer.writeAll(c.text_secondary);
-                try writer.writeAll("  with instructions for Claude.");
-                try writer.writeAll(" " ** 17);
+                try writer.writeAll("  with instructions for Zeke.");
+                try writer.writeAll(" " ** 18);
             } else {
                 try writer.writeAll(" " ** 49);
             }
@@ -608,7 +610,7 @@ pub const WelcomeScreen = struct {
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);
         try writer.writeAll("│");
-        try writer.writeAll(c.orange);
+        try writer.writeAll(c.yellow);
         try writer.writeAll("  Recent activity");
         try writer.writeAll(" " ** 32);
         try writer.writeAll(c.bg_primary);
