@@ -982,6 +982,7 @@ const StdoutWriter = struct {
 
 fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
     const tokyo = @import("tui/tokyo_night.zig");
+    const input = @import("tui/input.zig");
 
     // Get username from environment
     const username = std.posix.getenv("USER") orelse "User";
@@ -1001,7 +1002,12 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
         cwd,
     );
 
+    // Initialize terminal in raw mode
+    var term_state = try input.TerminalState.init();
+    defer term_state.deinit();
+
     const stdout = std.posix.STDOUT_FILENO;
+    const stdin = std.posix.STDIN_FILENO;
 
     // Render welcome screen once
     {
@@ -1013,6 +1019,114 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
         _ = try std.posix.write(stdout, buffer.items);
     }
 
+    // Input buffer for command input
+    var input_buffer = try std.ArrayList(u8).initCapacity(allocator, 256);
+    defer input_buffer.deinit(allocator);
+
+    // Session state
+    var thinking_mode: bool = false;
+    var running: bool = true;
+
+    // Main event loop
+    while (running) {
+        // Read keyboard input (blocking with 100ms timeout)
+        var read_buf: [32]u8 = undefined;
+        const nread = std.posix.read(stdin, &read_buf) catch |err| {
+            std.debug.print("Read error: {}\n", .{err});
+            break;
+        };
+
+        if (nread == 0) continue; // Timeout, no input
+
+        // Parse the key event
+        const key_event = input.KeyEvent.parse(read_buf[0..nread]);
+
+        // Handle key events
+        switch (key_event) {
+            .ctrl_c, .ctrl_d => {
+                running = false;
+            },
+            .escape => {
+                // ESC key also exits
+                running = false;
+            },
+            .tab => {
+                // Toggle thinking mode
+                thinking_mode = !thinking_mode;
+                const status = if (thinking_mode) "ON" else "OFF";
+                const msg = try std.fmt.allocPrint(allocator, "\r\n🧠 Thinking mode: {s}\r\n", .{status});
+                defer allocator.free(msg);
+                _ = try std.posix.write(stdout, msg);
+            },
+            .enter => {
+                // Submit command
+                if (input_buffer.items.len > 0) {
+                    const msg = try std.fmt.allocPrint(
+                        allocator,
+                        "\r\n⚡ Command: {s}\r\n",
+                        .{input_buffer.items},
+                    );
+                    defer allocator.free(msg);
+                    _ = try std.posix.write(stdout, msg);
+
+                    // Clear input buffer
+                    input_buffer.clearRetainingCapacity();
+                }
+            },
+            .backspace => {
+                // Remove last character from input buffer
+                if (input_buffer.items.len > 0) {
+                    _ = input_buffer.pop();
+                    // Visual feedback: backspace, space, backspace
+                    _ = try std.posix.write(stdout, "\x08 \x08");
+                }
+            },
+            .char => |c| {
+                // Add character to input buffer
+                try input_buffer.append(allocator, c);
+                // Echo the character
+                const char_buf = [_]u8{c};
+                _ = try std.posix.write(stdout, &char_buf);
+            },
+            .arrow_up => {
+                _ = try std.posix.write(stdout, "\r\n↑ Arrow Up (scroll history up)\r\n");
+            },
+            .arrow_down => {
+                _ = try std.posix.write(stdout, "\r\n↓ Arrow Down (scroll history down)\r\n");
+            },
+            .ctrl_l => {
+                // Clear screen and re-render welcome
+                _ = try std.posix.write(stdout, "\x1b[2J\x1b[H");
+                var buffer = std.ArrayList(u8){};
+                defer buffer.deinit(allocator);
+                const writer = StdoutWriter{ .buffer = &buffer, .allocator = allocator };
+                try screen.render(writer);
+                _ = try std.posix.write(stdout, buffer.items);
+            },
+            .ctrl_u => {
+                // Clear input line
+                const clear_len = input_buffer.items.len;
+                var i: usize = 0;
+                while (i < clear_len) : (i += 1) {
+                    _ = try std.posix.write(stdout, "\x08 \x08");
+                }
+                input_buffer.clearRetainingCapacity();
+            },
+            else => {
+                // Debug: show unknown keys
+                const debug_msg = try std.fmt.allocPrint(
+                    allocator,
+                    "\r\n[Unknown key]\r\n",
+                    .{},
+                );
+                defer allocator.free(debug_msg);
+                _ = try std.posix.write(stdout, debug_msg);
+            },
+        }
+    }
+
+    // Clean exit message
+    _ = try std.posix.write(stdout, "\r\n⚡ Goodbye!\r\n");
 }
 
 fn handleNvimCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, args: []const [:0]u8) !void {
