@@ -1,7 +1,9 @@
 const std = @import("std");
 
-// Export TOML loader
+// Export TOML loader and hierarchical config loader
 pub const toml_loader = @import("toml_loader.zig");
+pub const loader = @import("loader.zig");
+pub const ConfigLoader = loader.ConfigLoader;
 
 pub const ModelConfig = struct {
     name: []const u8,
@@ -106,7 +108,8 @@ pub const ProviderPreferencesConfig = struct {
     fallback_enabled: bool = true,
     health_check_interval_s: u32 = 300,
     auto_switch_on_failure: bool = true,
-    preferred_providers: []const []const u8 = &[_][]const u8{ "claude", "openai", "xai", "ollama" },
+    enabled_providers: []const []const u8 = &[_][]const u8{ "ollama", "openai", "anthropic", "google", "xai" },
+    endpoints: ProviderEndpointConfig = ProviderEndpointConfig{},
 };
 
 pub const Config = struct {

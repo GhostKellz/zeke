@@ -4,15 +4,17 @@
 const std = @import("std");
 const lsp = @import("../lsp/lsp.zig");
 const index = @import("../index/index.zig");
+const lifecycle = @import("lifecycle.zig");
 
 pub const SOCKET_PATH = "/tmp/zeke.sock";
+pub const PID_FILE_PATH = "/tmp/zeke.pid";
 
 /// Daemon state
 pub const Daemon = struct {
     allocator: std.mem.Allocator,
     lsp_manager: *lsp.LspManager,
     socket_path: []const u8,
-    running: bool,
+    lifecycle_manager: lifecycle.LifecycleManager,
 
     pub fn init(allocator: std.mem.Allocator) !*Daemon {
         const daemon = try allocator.create(Daemon);
@@ -24,23 +26,27 @@ pub const Daemon = struct {
             .allocator = allocator,
             .lsp_manager = lsp_mgr,
             .socket_path = SOCKET_PATH,
-            .running = false,
+            .lifecycle_manager = try lifecycle.LifecycleManager.init(allocator, PID_FILE_PATH),
         };
 
         return daemon;
     }
 
     pub fn deinit(self: *Daemon) void {
-        if (self.running) {
+        if (!self.lifecycle_manager.shouldShutdown()) {
             self.stop() catch {};
         }
         self.lsp_manager.deinit();
         self.allocator.destroy(self.lsp_manager);
+        self.lifecycle_manager.deinit();
         self.allocator.destroy(self);
     }
 
     /// Start the daemon server
     pub fn start(self: *Daemon) !void {
+        // Start lifecycle manager (creates PID file, checks for existing daemon)
+        try self.lifecycle_manager.start();
+
         std.debug.print("🚀 Starting Zeke daemon on {s}\n", .{self.socket_path});
 
         // Remove old socket if exists
@@ -53,12 +59,11 @@ pub const Daemon = struct {
         });
         defer server.deinit();
 
-        self.running = true;
         std.debug.print("✓ Daemon listening on {s}\n", .{self.socket_path});
         std.debug.print("  Use 'zeke daemon stop' to shut down\n\n", .{});
 
         // Accept connections
-        while (self.running) {
+        while (!self.lifecycle_manager.shouldShutdown()) {
             const connection = server.accept() catch |err| {
                 std.debug.print("Accept error: {}\n", .{err});
                 continue;
@@ -73,13 +78,21 @@ pub const Daemon = struct {
     /// Stop the daemon
     pub fn stop(self: *Daemon) !void {
         std.debug.print("Stopping daemon...\n", .{});
-        self.running = false;
+        self.lifecycle_manager.requestShutdown();
 
         // Shutdown all LSP servers
         try self.lsp_manager.shutdownAll();
 
+        // Stop lifecycle manager (removes PID file)
+        try self.lifecycle_manager.stop();
+
         // Clean up socket
         std.fs.cwd().deleteFile(self.socket_path) catch {};
+    }
+
+    /// Get daemon health status
+    pub fn getHealthStatus(self: *Daemon) !lifecycle.LifecycleManager.HealthStatus {
+        return try self.lifecycle_manager.getHealthStatus();
     }
 
     /// Handle a client connection
@@ -131,8 +144,12 @@ pub const Daemon = struct {
             return try self.handleLspReferences(obj);
         } else if (std.mem.eql(u8, method.string, "index/search")) {
             return try self.handleIndexSearch(obj);
+        } else if (std.mem.eql(u8, method.string, "health")) {
+            return try self.handleHealth();
         } else if (std.mem.eql(u8, method.string, "ping")) {
             return try self.handlePing();
+        } else if (std.mem.eql(u8, method.string, "shutdown")) {
+            return try self.handleShutdown();
         }
 
         return error.UnknownMethod;
@@ -251,8 +268,18 @@ pub const Daemon = struct {
         return try self.allocator.dupe(u8, "{\"result\":[]}");
     }
 
+    fn handleHealth(self: *Daemon) ![]const u8 {
+        const status = try self.getHealthStatus();
+        return try status.toJson(self.allocator);
+    }
+
     fn handlePing(self: *Daemon) ![]const u8 {
         return try std.fmt.allocPrint(self.allocator, "{{\"result\":\"pong\"}}", .{});
+    }
+
+    fn handleShutdown(self: *Daemon) ![]const u8 {
+        self.lifecycle_manager.requestShutdown();
+        return try std.fmt.allocPrint(self.allocator, "{{\"result\":\"shutting down\"}}", .{});
     }
 };
 

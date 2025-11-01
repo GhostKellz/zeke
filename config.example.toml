@@ -1,0 +1,216 @@
+# Zeke Configuration Example
+# This file shows all available configuration options
+# Copy to one of these locations (priority order):
+#   1. ./zeke.toml or ./.zeke/config.toml (project-specific, highest priority)
+#   2. ~/.config/zeke/config.toml (user config)
+#   3. /etc/zeke/config.toml (system config, lowest priority)
+#
+# Environment variables can override any setting:
+#   ZEKE_DEFAULT_PROVIDER=openai
+#   ZEKE_DEFAULT_MODEL=gpt-4
+#
+# 🚀 Quick Start with Ollama (default, works out of the box):
+#   default_provider = "ollama"
+#   default_model = "qwen2.5-coder:7b"
+
+# === Basic Settings ===
+
+# Default AI provider (ollama, openai, anthropic, google, xai)
+# Ollama is the default because it works locally without API keys
+[providers]
+default_provider = "ollama"
+
+# Which providers are enabled (will be tried in fallback scenarios)
+enabled_providers = ["ollama", "openai", "anthropic", "google", "xai"]
+
+# Enable automatic fallback if default provider fails
+fallback_enabled = true
+auto_switch_on_failure = true
+health_check_interval_s = 300  # Check provider health every 5 minutes
+
+# === Provider Endpoints ===
+
+[providers.endpoints]
+ollama = "http://localhost:11434"
+openai = "https://api.openai.com"
+anthropic = "https://api.anthropic.com"  # Claude
+google = "https://generativelanguage.googleapis.com"
+xai = "https://api.x.ai"  # Grok
+azure = "https://YOUR_RESOURCE.openai.azure.com"  # Replace with your Azure resource
+
+# Azure-specific settings (if using Azure OpenAI)
+azure_resource_name = "your-resource"
+azure_deployment_name = "your-deployment"
+azure_api_version = "2024-02-15-preview"
+
+# === Model Selection ===
+
+# Default model to use
+default_model = "qwen2.5-coder:7b"  # Good local model via Ollama
+
+# Model aliases for easy switching
+[model_aliases]
+fast = "llama3.2:3b"                          # Fast local model
+smart = "claude-opus-4-1-20250805"             # Most capable (requires API key)
+balanced = "claude-sonnet-4-5-20250929"        # Best balance (requires API key)
+local = "qwen2.5-coder:7b"                     # Local via Ollama
+
+# Custom model configurations
+[[models]]
+name = "qwen2.5-coder:7b"
+provider = "ollama"
+temperature = 0.7
+max_tokens = 4096
+top_p = 1.0
+
+[[models]]
+name = "gpt-4"
+provider = "openai"
+temperature = 0.7
+max_tokens = 8000
+top_p = 1.0
+
+[[models]]
+name = "claude-sonnet-4-5-20250929"
+provider = "anthropic"
+temperature = 0.7
+max_tokens = 8000
+top_p = 1.0
+
+# === Authentication ===
+# NOTE: API keys should be stored in environment variables or OS keyring, not here!
+# Set environment variables:
+#   export ANTHROPIC_API_KEY="your-key"
+#   export OPENAI_API_KEY="your-key"
+#   export XAI_API_KEY="your-key"
+#   export GOOGLE_API_KEY="your-key"
+#
+# Or use `zeke auth <provider>` command to store securely in OS keyring
+
+# === LSP Configuration ===
+
+[lsp]
+# Enable LSP aggregation (combine diagnostics from multiple LSPs)
+enable_aggregation = true
+
+# LSP servers to use (auto-detected by default)
+# Uncomment to override:
+# [[lsp.servers]]
+# name = "zls"
+# command = "zls"
+# file_types = ["zig"]
+
+# === Caching ===
+
+[cache]
+# Enable AI response caching (saves API calls and $$)
+enabled = true
+
+# Max cache size (entries)
+max_entries = 1000
+
+# Cache TTL in seconds (1 hour)
+ttl_seconds = 3600
+
+# Cache directory
+cache_dir = "~/.cache/zeke"
+
+# === Logging & Debugging ===
+
+# Enable debug mode (verbose logging)
+debug_mode = false
+
+# Log file path (null = don't write to file, logs go to stderr)
+log_file = null
+
+# Log level (trace, debug, info, warn, error)
+log_level = "info"
+
+# === UI/UX Settings ===
+
+[ui]
+# Enable streaming responses (show text as it's generated)
+streaming_enabled = true
+
+# Enable colored output
+enable_colors = true
+
+# Show progress indicators for long operations
+show_progress = true
+
+[keybindings]
+# Neovim-style keybindings (used by zeke.nvim)
+open_panel = "<leader>ac"
+accept_suggestion = "<C-g>"
+next_suggestion = "<C-]>"
+prev_suggestion = "<C-[>"
+dismiss = "<C-\\>"
+ai_palette = "<leader>ai"
+toggle_inline = "<leader>at"
+
+# === Storage ===
+
+[storage]
+# Enable persistent storage for index, cache, etc.
+enabled = true
+
+# Storage path for per-repo database (.zeke file in project root)
+path = ".zeke"
+
+# System-wide cache location
+system_cache_dir = "~/.cache/zeke"
+
+# === Daemon Settings ===
+
+[daemon]
+# Unix socket path for daemon communication
+socket_path = "/tmp/zeke.sock"
+
+# PID file path
+pid_file = "/tmp/zeke.pid"
+
+# Daemon auto-start (launch daemon automatically if not running)
+auto_start = true
+
+# Request queue size
+queue_size = 100
+
+# Worker threads for parallel request processing
+worker_threads = 4
+
+# === MCP Servers (Model Context Protocol) ===
+# Integrate external tools via MCP
+
+# Example: Glyph for advanced code analysis
+# [[mcp_servers]]
+# name = "glyph"
+# [mcp_servers.transport.stdio]
+# command = "glyph"
+# args = ["--mcp"]
+
+# === Performance Tuning ===
+
+[performance]
+# Enable query result caching
+enable_query_cache = true
+
+# B-tree cache size (for index storage)
+btree_cache_size = 1000
+
+# Plan cache size (for SQL-like queries)
+plan_cache_size = 100
+
+# Connection pool size (for async operations)
+connection_pool_size = 4
+
+# === Security ===
+
+[security]
+# Validate API responses (protect against injection attacks)
+validate_responses = true
+
+# Sanitize user input before sending to AI
+sanitize_input = true
+
+# Redact sensitive data in logs (API keys, tokens, etc.)
+redact_secrets = true
