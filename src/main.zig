@@ -981,8 +981,6 @@ const StdoutWriter = struct {
 };
 
 fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
-    _ = zeke_instance; // Will use this later for interactive mode
-
     const tokyo = @import("tui/tokyo_night.zig");
 
     // Get username from environment
@@ -992,24 +990,152 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
     var cwd_buf: [1024]u8 = undefined;
     const cwd = try std.fs.cwd().realpath(".", &cwd_buf);
 
-    // Create welcome screen
-    var screen = tokyo.WelcomeScreen.init(
+    // Get current model info
+    const model_info = zeke_instance.config.default_model;
+    const model_display = try std.fmt.allocPrint(allocator, "{s} • Interactive", .{model_info});
+    defer allocator.free(model_display);
+
+    // Create interactive TUI session
+    var tui_session = try tokyo.InteractiveTUI.init(
         allocator,
         username,
-        "Sonnet 4.5 • Claude Max",
+        model_display,
         cwd,
     );
+    defer tui_session.deinit();
 
-    // Render to stdout using a buffer - Zig 0.16 ArrayList API
+    // Save terminal state and enter raw mode
+    const stdin = std.posix.STDIN_FILENO;
+    const stdout = std.posix.STDOUT_FILENO;
+
+    const orig_termios = std.posix.tcgetattr(stdin) catch {
+        std.debug.print("Warning: Could not get terminal attributes\n", .{});
+        return;
+    };
+
+    // Enter raw mode
+    var raw = orig_termios;
+    raw.lflag.ECHO = false;
+    raw.lflag.ICANON = false;
+    raw.lflag.ISIG = false;
+    raw.lflag.IEXTEN = false;
+    raw.iflag.IXON = false;
+    raw.iflag.ICRNL = false;
+    raw.oflag.OPOST = false;
+    std.posix.tcsetattr(stdin, .FLUSH, raw) catch {
+        std.debug.print("Warning: Could not set raw mode\n", .{});
+        return;
+    };
+
+    // Ensure we restore terminal on exit
+    defer {
+        std.posix.tcsetattr(stdin, .FLUSH, orig_termios) catch {};
+        _ = std.posix.write(stdout, "\x1b[?25h") catch {}; // Show cursor
+        _ = std.posix.write(stdout, "\x1b[0m\n") catch {}; // Reset colors
+    }
+
+    // Hide cursor
+    _ = try std.posix.write(stdout, "\x1b[?25l");
+
+    // Main interactive loop
+    var thinking_mode = false;
+    while (tui_session.running) {
+        // Render current state
+        var buffer = std.ArrayList(u8){};
+        defer buffer.deinit(allocator);
+
+        const writer = StdoutWriter{ .buffer = &buffer, .allocator = allocator };
+        try tui_session.render(writer);
+
+        // Update footer with thinking mode status
+        const footer_text = try std.fmt.allocPrint(
+            allocator,
+            "? for shortcuts                      Thinking {s} (tab to toggle)",
+            .{if (thinking_mode) "on " else "off"},
+        );
+        defer allocator.free(footer_text);
+
+        // Write to stdout
+        _ = try std.posix.write(stdout, buffer.items);
+
+        // Read keyboard input (non-blocking with timeout)
+        var read_buf: [64]u8 = undefined;
+        const nread = std.posix.read(stdin, &read_buf) catch 0;
+
+        if (nread > 0) {
+            const key = read_buf[0];
+
+            // Handle special keys
+            if (key == '\t') {
+                // Tab: toggle thinking mode
+                thinking_mode = !thinking_mode;
+                continue;
+            } else if (key == '?') {
+                // Show help
+                try showTuiHelp(allocator, stdout);
+                std.Thread.sleep(2 * std.time.ns_per_s);
+                continue;
+            } else if (key == '\r' or key == '\n') {
+                // Enter: submit and process message
+                if (tui_session.input_buffer.items.len > 0) {
+                    const message = try allocator.dupe(u8, tui_session.input_buffer.items);
+                    defer allocator.free(message);
+
+                    // Submit command
+                    try tui_session.submitCommand();
+
+                    // Process with AI (simplified for now)
+                    const response = try std.fmt.allocPrint(
+                        allocator,
+                        "Received: {s}\n[AI response would appear here with streaming]",
+                        .{message},
+                    );
+                    defer allocator.free(response);
+
+                    try tui_session.chat_history.append(allocator, .{
+                        .role = .assistant,
+                        .content = try allocator.dupe(u8, response),
+                    });
+                }
+                continue;
+            }
+
+            // Pass key to input handler
+            try tui_session.handleInput(key);
+        }
+
+        // Small delay to prevent busy loop
+        std.Thread.sleep(16 * std.time.ns_per_ms); // ~60fps
+    }
+}
+
+fn showTuiHelp(allocator: std.mem.Allocator, stdout_fd: std.posix.fd_t) !void {
+    const tokyo = @import("tui/tokyo_night.zig");
+    const c = tokyo.TokyoNight;
+
+    const help_text =
+        \\
+        \\┌─ Keyboard Shortcuts ─────────────────────────────────────────┐
+        \\│                                                              │
+        \\│  Enter    Submit message to AI                              │
+        \\│  Tab      Toggle thinking mode on/off                       │
+        \\│  Ctrl+C   Exit TUI                                          │
+        \\│  ESC      Exit TUI                                          │
+        \\│  ?        Show this help                                    │
+        \\│                                                              │
+        \\└──────────────────────────────────────────────────────────────┘
+        \\
+    ;
+
     var buffer = std.ArrayList(u8){};
     defer buffer.deinit(allocator);
 
-    const writer = StdoutWriter{ .buffer = &buffer, .allocator = allocator };
-    try screen.render(writer);
+    try buffer.appendSlice(allocator, "\x1b[2J\x1b[H"); // Clear screen
+    try buffer.appendSlice(allocator, c.cyan);
+    try buffer.appendSlice(allocator, help_text);
+    try buffer.appendSlice(allocator, c.reset);
 
-    // Print the buffer to stdout (not stderr like debug.print)
-    const stdout = std.posix.STDOUT_FILENO;
-    _ = try std.posix.write(stdout, buffer.items);
+    _ = try std.posix.write(stdout_fd, buffer.items);
 }
 
 fn handleNvimCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, args: []const [:0]u8) !void {

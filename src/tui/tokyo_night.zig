@@ -282,7 +282,7 @@ pub const InteractiveTUI = struct {
         }
     }
 
-    fn submitCommand(self: *Self) !void {
+    pub fn submitCommand(self: *Self) !void {
         if (self.input_buffer.items.len == 0) return;
 
         const command = try self.allocator.dupe(u8, self.input_buffer.items);
