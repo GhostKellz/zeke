@@ -2,6 +2,8 @@ const std = @import("std");
 const Keyring = @import("keyring.zig").Keyring;
 const AnthropicOAuth = @import("anthropic_oauth.zig").AnthropicOAuth;
 const OAuthTokens = @import("anthropic_oauth.zig").OAuthTokens;
+const GitHubOAuth = @import("github_oauth.zig").GitHubOAuth;
+const CopilotTokens = @import("github_oauth.zig").CopilotTokens;
 
 /// Token metadata stored alongside access token
 pub const TokenMetadata = struct {
@@ -23,12 +25,31 @@ pub const TokenMetadata = struct {
     }
 };
 
+/// Copilot-specific token info with API endpoint
+pub const CopilotTokenInfo = struct {
+    token: []const u8,
+    api_endpoint: []const u8,
+    expires_at: i64,
+
+    pub fn deinit(self: *CopilotTokenInfo, allocator: std.mem.Allocator) void {
+        allocator.free(self.token);
+        allocator.free(self.api_endpoint);
+    }
+
+    pub fn isExpired(self: *const CopilotTokenInfo) bool {
+        const now = std.time.timestamp();
+        // Consider expired if within 5 minutes of expiry
+        return now >= (self.expires_at - 300);
+    }
+};
+
 /// Authentication manager for API keys and OAuth tokens
 /// Supports environment variables, keyring, and OAuth flows
 pub const AuthManager = struct {
     allocator: std.mem.Allocator,
     keys: std.StringHashMap([]const u8),
     tokens: std.StringHashMap(TokenMetadata),
+    copilot_token: ?CopilotTokenInfo,
     keyring: Keyring,
 
     pub fn init(allocator: std.mem.Allocator) AuthManager {
@@ -36,6 +57,7 @@ pub const AuthManager = struct {
             .allocator = allocator,
             .keys = std.StringHashMap([]const u8).init(allocator),
             .tokens = std.StringHashMap(TokenMetadata).init(allocator),
+            .copilot_token = null,
             .keyring = Keyring.init(allocator),
         };
     }
@@ -59,6 +81,11 @@ pub const AuthManager = struct {
             metadata.deinit(self.allocator);
         }
         self.tokens.deinit();
+
+        // Clean up Copilot token
+        if (self.copilot_token) |*token| {
+            token.deinit(self.allocator);
+        }
     }
 
     /// Get API key for a provider
@@ -166,6 +193,49 @@ pub const AuthManager = struct {
         var tokens = try oauth.authorize();
         defer tokens.deinit(self.allocator);
         try self.storeOAuthTokens("anthropic", tokens);
+    }
+
+    /// Get Copilot token, automatically exchanging GitHub token if needed
+    /// Returns both the Copilot token and API endpoint
+    pub fn getCopilotToken(self: *AuthManager) !CopilotTokenInfo {
+        // Check if we have a cached, non-expired Copilot token
+        if (self.copilot_token) |token| {
+            if (!token.isExpired()) {
+                return CopilotTokenInfo{
+                    .token = try self.allocator.dupe(u8, token.token),
+                    .api_endpoint = try self.allocator.dupe(u8, token.api_endpoint),
+                    .expires_at = token.expires_at,
+                };
+            }
+            // Token expired, clear it
+            var mut_token = self.copilot_token.?;
+            mut_token.deinit(self.allocator);
+            self.copilot_token = null;
+        }
+
+        // Get GitHub token from keyring
+        const github_token = try self.keyring.get("zeke", "github") orelse return error.NoGitHubToken;
+        defer self.allocator.free(github_token);
+
+        // Exchange for Copilot token
+        var github_oauth = GitHubOAuth.init(self.allocator);
+        var copilot_tokens = try github_oauth.getCopilotTokens(github_token);
+        errdefer copilot_tokens.deinit(self.allocator);
+
+        // Cache the Copilot token
+        self.copilot_token = CopilotTokenInfo{
+            .token = try self.allocator.dupe(u8, copilot_tokens.token),
+            .api_endpoint = try self.allocator.dupe(u8, copilot_tokens.api_endpoint),
+            .expires_at = copilot_tokens.expires_at,
+        };
+        copilot_tokens.deinit(self.allocator);
+
+        // Return a copy
+        return CopilotTokenInfo{
+            .token = try self.allocator.dupe(u8, self.copilot_token.?.token),
+            .api_endpoint = try self.allocator.dupe(u8, self.copilot_token.?.api_endpoint),
+            .expires_at = self.copilot_token.?.expires_at,
+        };
     }
 
     /// Store OAuth tokens in keyring and memory

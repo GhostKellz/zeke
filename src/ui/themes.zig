@@ -189,8 +189,12 @@ pub fn getCurrentTheme(allocator: std.mem.Allocator) Theme {
     const file = std.fs.openFileAbsolute(config_path, .{}) catch return Theme.get(.night);
     defer file.close();
 
-    const content = file.readToEndAlloc(allocator, 1024 * 1024) catch return Theme.get(.night);
+    // Read file content with stat
+    const stat = file.stat() catch return Theme.get(.night);
+    const content = allocator.alloc(u8, stat.size) catch return Theme.get(.night);
     defer allocator.free(content);
+
+    _ = file.readAll(content) catch return Theme.get(.night);
 
     // Simple TOML parsing - look for theme = "variant"
     if (std.mem.indexOf(u8, content, "theme = \"")) |start| {

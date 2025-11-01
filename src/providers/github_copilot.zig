@@ -12,12 +12,12 @@ pub const GitHubCopilotProvider = struct {
     model: []const u8,
     allocator: std.mem.Allocator,
 
-    /// Initialize GitHub Copilot provider with OAuth token
-    pub fn init(allocator: std.mem.Allocator, access_token: []const u8) GitHubCopilotProvider {
+    /// Initialize GitHub Copilot provider with OAuth token and API endpoint
+    pub fn init(allocator: std.mem.Allocator, access_token: []const u8, api_endpoint: []const u8) GitHubCopilotProvider {
         return .{
             .http_client = HttpClient.init(allocator),
             .access_token = access_token,
-            .base_url = "https://api.githubcopilot.com",
+            .base_url = api_endpoint,
             .model = "gpt-4o", // Default model
             .allocator = allocator,
         };
@@ -66,9 +66,31 @@ pub const GitHubCopilotProvider = struct {
 
         try headers.put("Authorization", auth_header);
         try headers.put("Content-Type", "application/json");
-        try headers.put("Editor-Plugin-Version", "zeke/0.3.1");
-        try headers.put("Editor-Version", "zeke/0.3.1");
         try headers.put("OpenAI-Intent", "conversation-panel");
+
+        // Detect environment and set appropriate headers
+        // Prefers: NVIM > GHOSTTY > VSCode > default
+        if (std.posix.getenv("NVIM")) |_| {
+            // Running in Neovim
+            try headers.put("Editor-Version", "Neovim/0.10.0");
+            try headers.put("Editor-Plugin-Version", "zeke.nvim/0.3.2");
+            try headers.put("User-Agent", "zeke.nvim/0.3.2");
+        } else if (std.posix.getenv("GHOSTTY_RESOURCES_DIR")) |_| {
+            // Running in Ghostty terminal
+            try headers.put("Editor-Version", "Ghostty/1.0.0");
+            try headers.put("Editor-Plugin-Version", "zeke/0.3.2");
+            try headers.put("User-Agent", "zeke/0.3.2");
+        } else if (std.posix.getenv("VSCODE_GIT_IPC_HANDLE")) |_| {
+            // Running in VSCode terminal
+            try headers.put("Editor-Version", "vscode/1.85.0");
+            try headers.put("Editor-Plugin-Version", "copilot-chat/0.11.0");
+            try headers.put("User-Agent", "GitHubCopilotChat/0.11.0");
+        } else {
+            // Default: pretend to be VSCode
+            try headers.put("Editor-Version", "vscode/1.85.0");
+            try headers.put("Editor-Plugin-Version", "copilot-chat/0.11.0");
+            try headers.put("User-Agent", "GitHubCopilotChat/0.11.0");
+        }
 
         // Make HTTP request to chat completions endpoint
         const url = try std.fmt.allocPrint(
@@ -275,11 +297,11 @@ pub const TaskType = enum {
 
 test "github copilot provider init" {
     const allocator = std.testing.allocator;
-    const provider = GitHubCopilotProvider.init(allocator, "test-token");
+    const provider = GitHubCopilotProvider.init(allocator, "test-token", "https://api.individual.githubcopilot.com");
     var provider_mut = provider;
     defer provider_mut.deinit();
 
-    try std.testing.expectEqualStrings("https://api.githubcopilot.com", provider.base_url);
+    try std.testing.expectEqualStrings("https://api.individual.githubcopilot.com", provider.base_url);
     try std.testing.expectEqualStrings("gpt-4o", provider.model);
 }
 

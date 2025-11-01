@@ -342,9 +342,16 @@ pub const GitHubOAuth = struct {
 
         const ct = parsed.value;
 
+        // Extract API endpoint, default to individual if not present
+        const api_endpoint = if (ct.endpoints) |endpoints|
+            try self.allocator.dupe(u8, endpoints.api)
+        else
+            try self.allocator.dupe(u8, "https://api.individual.githubcopilot.com");
+
         return CopilotTokens{
             .token = try self.allocator.dupe(u8, ct.token),
             .expires_at = ct.expires_at,
+            .api_endpoint = api_endpoint,
         };
     }
 };
@@ -399,15 +406,20 @@ pub const OAuthTokens = struct {
 const CopilotTokensJson = struct {
     token: []const u8,
     expires_at: i64,
+    endpoints: ?struct {
+        api: []const u8,
+    } = null,
 };
 
 /// Copilot-specific tokens
 pub const CopilotTokens = struct {
     token: []const u8,
     expires_at: i64,
+    api_endpoint: []const u8,
 
     pub fn deinit(self: *CopilotTokens, allocator: std.mem.Allocator) void {
         allocator.free(self.token);
+        allocator.free(self.api_endpoint);
     }
 };
 

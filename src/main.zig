@@ -9,6 +9,7 @@ const agent = @import("agent/mod.zig");
 const tools = @import("tools/mod.zig");
 const git_ops = zeke.git;
 const search = zeke.search;
+const ui = @import("ui/mod.zig");
 
 // Version will be set by build system
 const VERSION = "0.3.2";
@@ -79,6 +80,9 @@ pub fn main() !void {
 }
 
 fn zekeMain(allocator: std.mem.Allocator) !void {
+    // Initialize Tokyo Night theme
+    ui.initTheme(allocator);
+
     // Get command line arguments
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
