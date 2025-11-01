@@ -327,6 +327,11 @@ pub const Doctor = struct {
     fn checkProviders(self: *Doctor, verbose: bool) !void {
         std.debug.print("🔑 Checking provider credentials...\n", .{});
 
+        // Import AuthManager for OAuth checks
+        const AuthManager = @import("../auth/manager.zig").AuthManager;
+        var auth = AuthManager.init(self.allocator);
+        defer auth.deinit();
+
         // Check OpenAI
         if (std.posix.getenv("OPENAI_API_KEY")) |key| {
             const masked = try maskApiKey(self.allocator, key);
@@ -341,17 +346,46 @@ pub const Doctor = struct {
             }
         }
 
-        // Check Anthropic/Claude
-        if (std.posix.getenv("ANTHROPIC_API_KEY")) |key| {
-            const masked = try maskApiKey(self.allocator, key);
-            defer self.allocator.free(masked);
-            try self.addResult("Anthropic", .ok, "API key configured", masked);
-            std.debug.print("  ✅ Anthropic: {s}\n", .{masked});
+        // Check Anthropic/Claude (API key + OAuth)
+        const anthropic_env_key = std.posix.getenv("ANTHROPIC_API_KEY");
+        const anthropic_oauth = try auth.keyring.get("zeke", "anthropic");
+        defer if (anthropic_oauth) |token| self.allocator.free(token);
+
+        if (anthropic_env_key != null or anthropic_oauth != null) {
+            if (anthropic_oauth != null) {
+                const masked = try maskApiKey(self.allocator, anthropic_oauth.?);
+                defer self.allocator.free(masked);
+                try self.addResult("Anthropic", .ok, "OAuth token configured", masked);
+                std.debug.print("  ✅ Anthropic (OAuth): {s}\n", .{masked});
+            } else if (anthropic_env_key) |key| {
+                const masked = try maskApiKey(self.allocator, key);
+                defer self.allocator.free(masked);
+                try self.addResult("Anthropic", .ok, "API key configured", masked);
+                std.debug.print("  ✅ Anthropic (API Key): {s}\n", .{masked});
+            }
         } else {
-            try self.addResult("Anthropic", .warning, "API key not set", null);
+            try self.addResult("Anthropic", .warning, "Not configured", null);
             std.debug.print("  ⚠️  Anthropic: Not configured\n", .{});
             if (verbose) {
-                std.debug.print("     Set ANTHROPIC_API_KEY or use: zeke auth google\n", .{});
+                std.debug.print("     Option 1: zeke auth claude (OAuth)\n", .{});
+                std.debug.print("     Option 2: Set ANTHROPIC_API_KEY\n", .{});
+            }
+        }
+
+        // Check GitHub Copilot (OAuth only)
+        const github_oauth = try auth.keyring.get("zeke", "github");
+        defer if (github_oauth) |token| self.allocator.free(token);
+
+        if (github_oauth) |token| {
+            const masked = try maskApiKey(self.allocator, token);
+            defer self.allocator.free(masked);
+            try self.addResult("GitHub Copilot", .ok, "OAuth token configured", masked);
+            std.debug.print("  ✅ GitHub Copilot (OAuth): {s}\n", .{masked});
+        } else {
+            try self.addResult("GitHub Copilot", .warning, "Not configured", null);
+            std.debug.print("  ⚠️  GitHub Copilot: Not configured\n", .{});
+            if (verbose) {
+                std.debug.print("     Setup: zeke auth copilot\n", .{});
             }
         }
 

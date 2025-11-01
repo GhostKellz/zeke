@@ -1,7 +1,6 @@
 const std = @import("std");
-const zeke = @import("zeke");
-const AuthManager = zeke.auth.AuthManager;
-const AuthProvider = zeke.auth.AuthProvider;
+const AuthManager = @import("../auth/manager.zig").AuthManager;
+const GitHubOAuth = @import("../auth/github_oauth.zig").GitHubOAuth;
 
 pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
     if (args.len < 1) {
@@ -11,74 +10,89 @@ pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
 
     const subcommand = args[0];
 
-    if (std.mem.eql(u8, subcommand, "google")) {
-        var auth = try AuthManager.init(allocator);
+    if (std.mem.eql(u8, subcommand, "claude")) {
+        // Anthropic OAuth login
+        var auth = AuthManager.init(allocator);
         defer auth.deinit();
-        const cred = try auth.authorizeGoogle();
-        defer auth.freeCredential(cred);
-        try auth.upsertCredential(cred);
-    } else if (std.mem.eql(u8, subcommand, "github")) {
-        var auth = try AuthManager.init(allocator);
+
+        std.debug.print("\n🔐 Authenticating with Anthropic Claude...\n", .{});
+        try auth.loginAnthropic();
+        std.debug.print("\n✅ Successfully authenticated with Claude!\n\n", .{});
+    } else if (std.mem.eql(u8, subcommand, "copilot") or std.mem.eql(u8, subcommand, "github")) {
+        // GitHub Copilot OAuth login (device flow)
+        var github_oauth = GitHubOAuth.init(allocator);
+
+        var tokens = try github_oauth.authorize();
+        defer tokens.deinit(allocator);
+
+        // Store the GitHub token using AuthManager's keyring
+        var auth = AuthManager.init(allocator);
         defer auth.deinit();
-        const cred = try auth.authorizeGitHub();
-        defer auth.freeCredential(cred);
-        try auth.upsertCredential(cred);
-    } else if (std.mem.eql(u8, subcommand, "openai") or
-               std.mem.eql(u8, subcommand, "anthropic") or
-               std.mem.eql(u8, subcommand, "azure")) {
+
+        // Store GitHub access token in keyring
+        try auth.keyring.set("zeke", "github", tokens.access_token);
+
+        // Optionally store expiry info
+        const now = std.time.timestamp();
+        const expires_at = now + (90 * 24 * 60 * 60); // 90 days typical GitHub token expiry
+        const expires_str = try std.fmt.allocPrint(allocator, "{d}", .{expires_at});
+        defer allocator.free(expires_str);
+        try auth.keyring.set("zeke", "github_expires", expires_str);
+
+        std.debug.print("\n✅ Successfully authenticated with GitHub Copilot!\n", .{});
+        std.debug.print("   Token will expire in ~90 days\n\n", .{});
+    } else if (std.mem.eql(u8, subcommand, "status")) {
+        // Show authentication status
+        var auth = AuthManager.init(allocator);
+        defer auth.deinit();
+        try auth.printStatus();
+    } else if (std.mem.eql(u8, subcommand, "logout")) {
+        // Logout from provider
         if (args.len < 2) {
-            std.log.err("Usage: zeke auth {s} <api-key>", .{subcommand});
-            return error.MissingApiKey;
+            std.debug.print("Usage: zeke auth logout <provider>\n", .{});
+            std.debug.print("Example: zeke auth logout anthropic\n", .{});
+            std.debug.print("Example: zeke auth logout github\n", .{});
+            return;
         }
 
-        const provider: AuthProvider = if (std.mem.eql(u8, subcommand, "openai"))
-            .openai
-        else if (std.mem.eql(u8, subcommand, "anthropic"))
-            .anthropic
-        else
-            .azure;
-
-        var auth = try AuthManager.init(allocator);
-        defer auth.deinit();
-        try auth.setApiKey(provider, args[1]);
-    } else if (std.mem.eql(u8, subcommand, "list")) {
-        var auth = try AuthManager.init(allocator);
+        const provider = args[1];
+        var auth = AuthManager.init(allocator);
         defer auth.deinit();
 
-        std.log.info("🔑 Stored Credentials:", .{});
-        inline for (@typeInfo(AuthProvider).@"enum".fields) |field| {
-            const provider: AuthProvider = @enumFromInt(field.value);
-            if (try auth.getCredential(provider)) |cred| {
-                const has_key = cred.api_key != null;
-                const has_token = cred.access_token != null;
-                std.log.info("  • {s}: {s}", .{ 
-                    @tagName(provider),
-                    if (has_key) "API Key ✓" else if (has_token) "OAuth Token ✓" else "None"
-                });
-            }
-        }
+        try auth.logout(provider);
     } else {
         printUsage();
     }
 }
 
 fn printUsage() void {
-    std.log.info(
+    std.debug.print(
+        \\
         \\🔐 Zeke Authentication
         \\
-        \\OAuth (for subscriptions):
-        \\  zeke auth google                    - Google OAuth for Claude Max + ChatGPT Pro
-        \\  zeke auth github                    - GitHub OAuth for Copilot Pro
+        \\OAuth (for premium providers):
+        \\  zeke auth claude                    - Authenticate with Anthropic Claude (OAuth PKCE)
+        \\  zeke auth copilot                   - Authenticate with GitHub Copilot (Device Flow)
+        \\  zeke auth github                    - Alias for 'copilot'
         \\
-        \\API Keys (for API access):
-        \\  zeke auth openai <api-key>          - OpenAI API key
-        \\  zeke auth anthropic <api-key>       - Anthropic API key (different from Claude Max!)
-        \\  zeke auth azure <api-key>           - Azure OpenAI API key
+        \\Status:
+        \\  zeke auth status                    - Show authentication status for all providers
         \\
-        \\Other:
-        \\  zeke auth list                      - List all stored credentials
+        \\Logout:
+        \\  zeke auth logout <provider>         - Remove OAuth tokens for a provider
+        \\                                        (providers: anthropic, github)
         \\
-        \\Note: Claude Max subscription uses Google OAuth, not API key!
+        \\Note: API keys can still be set via environment variables:
+        \\  - OPENAI_API_KEY          - OpenAI API key
+        \\  - ANTHROPIC_API_KEY       - Anthropic API key
+        \\  - GOOGLE_API_KEY          - Google API key
+        \\  - XAI_API_KEY             - xAI API key
+        \\  - Ollama is always available locally (no auth needed)
         \\
-        , .{});
+        \\Premium Subscriptions:
+        \\  With OAuth, you can use your existing Claude Max or GitHub Copilot Pro
+        \\  subscriptions without paying separately for API access!
+        \\
+        \\
+    , .{});
 }

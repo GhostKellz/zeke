@@ -2,7 +2,7 @@
   <img src="assets/zeke-logo.png" alt="Zeke Logo" width="128" height="128" />
 </div>
 
-# ⚡ ZEKE v0.3.0 - The Zig-Native AI Dev Companion
+# ⚡ ZEKE v0.3.1 - The Zig-Native AI Dev Companion
 
 <div align="center">
 
@@ -10,7 +10,7 @@
 ![Zig Version](https://img.shields.io/badge/Zig-0.16.0--dev-orange?style=for-the-badge)
 ![Multi-Provider AI](https://img.shields.io/badge/Multi--Provider-AI-blue?style=for-the-badge&logo=openai&logoColor=white)
 ![Async Runtime](https://img.shields.io/badge/Async-Runtime-green?style=for-the-badge&logo=lightning&logoColor=white)
-![Version](https://img.shields.io/badge/Version-0.3.0-brightgreen?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-0.3.1-brightgreen?style=for-the-badge)
 
 </div>
 
@@ -22,18 +22,18 @@
 ### The Next-Gen AI Copilot for CLI & Development Workflows
 ZEKE brings lightning-fast, native Zig performance to AI-powered coding workflows, integrating:
 
-* **GitHub Copilot** (chat, inline, code actions)
+* **Anthropic Claude Max** (✅ **OAuth Support** - use your $20/month subscription!)
+* **GitHub Copilot Pro** (✅ **OAuth Support** - use your $10/month subscription!)
 * **OpenAI** (GPT-4, GPT-4o, GPT-3.5)
-* **Anthropic Claude** (3.5, 4, Pro via Google sign-in)
-* **Ollama/local LLMs** (optional)
-* **Google Gemini** 
-* **LiteLLM integration AI proxy functionality** 
+* **Ollama/local LLMs** (free, private)
+* **Google Gemini**
+* **LiteLLM integration AI proxy functionality**
 * **More soon!**
 
-**Authenticate with GitHub, Google, OpenAI. Switch models live.**
-Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim or your terminal.
+**💎 Premium OAuth Authentication** - Use your existing Claude Max or Copilot Pro subscriptions without separate API costs! Save $50-100/month. [Learn more →](docs/oauth/README.md)
 
-**Leverage existing language models and services like github copilot pro and quickly switch between models just like vscode + github copilot extension **
+**Authenticate with OAuth or API keys. Switch models live.**
+Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim or your terminal.
 
 ---
 
@@ -42,8 +42,9 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 * ⚡ **Zig v0.16, Async-First:** Written entirely in Zig for pure speed and memory safety
 * 🔥 **zsync Runtime:** True non-blocking async calls and parallel AI requests
 * 🤖 **Multi-Backend:** Seamlessly use Copilot, ChatGPT, Claude, local LLMs
+* 💎 **Premium OAuth:** Use your existing Claude Max/Copilot Pro subscriptions - save $50-100/month!
 * 📝 **Chat + Actions:** Panel chat, inline, batch code actions, `/explain` & `/test` commands
-* 🔑 **Auth:** Sign in with GitHub (Copilot), Google (Claude), OpenAI keys—configurable
+* 🔑 **Flexible Auth:** OAuth 2.0 (PKCE + Device Flow), API keys, or local models—your choice
 * 🖥️ **Dev Focus:** Refactor, doc, review, batch ops—no cloud lock-in, all from Nvim & CLI
 * 🔌 **Extensible:** CLI, TUI, and plugin API for automation, batch, and scripting
 * 👁️ **Watch Mode (Revolutionary):** Real-time file watching with Grove AST, AI-powered fix suggestions, and auto-commit
