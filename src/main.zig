@@ -9,7 +9,7 @@ const agent = @import("agent/mod.zig");
 const tools = @import("tools/mod.zig");
 const git_ops = zeke.git;
 const search = zeke.search;
-const ui = @import("ui/mod.zig");
+const ui = zeke.ui;
 
 // Version will be set by build system
 const VERSION = "0.3.2";
@@ -216,6 +216,8 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
         std.debug.print("⚡ ZEKE - The Zig-Native AI Dev Companion\n", .{});
         std.debug.print("Ready to assist with your coding workflow!\n", .{});
         std.debug.print("ZEKE v{s}\n", .{VERSION});
+    } else if (std.mem.eql(u8, command, "usage")) {
+        try handleUsageCommand(&zeke_instance, allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
     } else if (std.mem.eql(u8, command, "glyph")) {
         const glyph = @import("cli/glyph.zig");
         try glyph.run(allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
@@ -506,7 +508,7 @@ fn handleFileCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, ar
 fn handleChat(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, message: []const u8) !void {
     var formatter = formatting.Formatter.init(allocator, .plain);
 
-    const response = zeke_instance.chat(message) catch |err| {
+    const response = zeke_instance.chatWithUsage(message) catch |err| {
         const error_msg = try std.fmt.allocPrint(allocator, "Chat failed: {}", .{err});
 
         const formatted_error = if (error_msg.len > 0)
@@ -520,12 +522,18 @@ fn handleChat(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, message: 
         std.debug.print("{s}", .{formatted_error});
         return;
     };
-    defer allocator.free(response);
+    defer allocator.free(response.content);
+    defer allocator.free(response.model);
 
-    const formatted_response = try formatter.formatResponse(response);
+    const formatted_response = try formatter.formatResponse(response.content);
     defer allocator.free(formatted_response);
 
     std.debug.print("{s}", .{formatted_response});
+
+    // Display token usage if available
+    if (response.usage) |usage| {
+        zeke_instance.token_tracker.printCompact(zeke_instance.current_provider, usage);
+    }
 }
 
 fn handleAsk(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, question: []const u8) !void {
@@ -1672,4 +1680,16 @@ fn printUsage() !void {
     std.debug.print("  • Tokyo Night themes (Night/Moon/Storm)\n", .{});
     std.debug.print("  • Secure API key storage in keyring\n", .{});
     std.debug.print("  • Smart model routing\n", .{});
+    std.debug.print("  • Token usage tracking and cost estimation\n", .{});
+}
+
+fn handleUsageCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, subcommands: []const [:0]u8) !void {
+    _ = allocator;
+
+    if (subcommands.len > 0 and std.mem.eql(u8, subcommands[0], "reset")) {
+        zeke_instance.token_tracker.reset();
+        std.debug.print("✅ Token usage tracking has been reset.\n", .{});
+    } else {
+        try zeke_instance.printUsageSummary();
+    }
 }

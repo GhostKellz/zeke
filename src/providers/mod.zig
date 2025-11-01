@@ -93,15 +93,30 @@ pub const ProviderManager = struct {
     }
     
     fn setupDefaultConfigs(self: *Self) !void {
-        // Claude configuration (highest priority - best for code)
+        // GitHub Copilot configuration (HIGHEST priority - 19+ models via $10/month)
+        const copilot_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
+            .chat_completion, .code_completion, .code_analysis, .code_explanation, .code_refactoring, .streaming
+        });
+        const copilot_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.claude, .openai, .ollama});
+
+        try self.provider_configs.put(.github_copilot, ProviderConfig{
+            .provider = .github_copilot,
+            .priority = 10, // Highest priority
+            .capabilities = copilot_caps,
+            .max_requests_per_minute = 100,
+            .timeout_ms = 25000,
+            .fallback_providers = copilot_fallbacks,
+        });
+
+        // Claude configuration (high priority - best for reasoning)
         const claude_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
             .chat_completion, .code_completion, .code_analysis, .code_explanation, .streaming
         });
-        const claude_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.openai, .xai, .ollama});
+        const claude_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.github_copilot, .openai, .xai, .ollama});
 
         try self.provider_configs.put(.claude, ProviderConfig{
             .provider = .claude,
-            .priority = 10,
+            .priority = 9,
             .capabilities = claude_caps,
             .max_requests_per_minute = 50,
             .timeout_ms = 45000,
@@ -138,11 +153,26 @@ pub const ProviderManager = struct {
             .fallback_providers = xai_fallbacks,
         });
 
+        // Google Gemini configuration (Gemini 2.5 Pro, 2.0 Flash)
+        const google_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
+            .chat_completion, .code_completion, .code_explanation, .code_analysis, .streaming
+        });
+        const google_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.github_copilot, .claude, .openai, .ollama});
+
+        try self.provider_configs.put(.google, ProviderConfig{
+            .provider = .google,
+            .priority = 8,
+            .capabilities = google_caps,
+            .max_requests_per_minute = 60,
+            .timeout_ms = 30000,
+            .fallback_providers = google_fallbacks,
+        });
+
         // Azure OpenAI configuration
         const azure_caps = try self.allocator.dupe(ProviderCapability, &[_]ProviderCapability{
             .chat_completion, .code_completion, .code_explanation, .streaming
         });
-        const azure_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.openai, .claude, .ollama});
+        const azure_fallbacks = try self.allocator.dupe(api.ApiProvider, &[_]api.ApiProvider{.google, .openai, .claude, .ollama});
 
         try self.provider_configs.put(.azure, ProviderConfig{
             .provider = .azure,

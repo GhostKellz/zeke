@@ -25,58 +25,58 @@ pub fn getTheme() themes.Theme {
 /// Color helpers for common UI elements
 pub const Colors = struct {
     /// Success messages (green)
-    pub inline fn success() []const u8 {
+    pub fn success() []const u8 {
         return getTheme().green;
     }
 
     /// Error messages (red)
-    pub inline fn error_() []const u8 {
+    pub fn error_() []const u8 {
         return getTheme().red;
     }
 
     /// Warning messages (yellow)
-    pub inline fn warning() []const u8 {
+    pub fn warning() []const u8 {
         return getTheme().yellow;
     }
 
     /// Info messages (blue)
-    pub inline fn info() []const u8 {
+    pub fn info() []const u8 {
         return getTheme().blue;
     }
 
     /// Highlight/emphasis (cyan)
-    pub inline fn highlight() []const u8 {
+    pub fn highlight() []const u8 {
         return getTheme().cyan;
     }
 
     /// Muted/dim text (comment color)
-    pub inline fn muted() []const u8 {
+    pub fn muted() []const u8 {
         return getTheme().comment;
     }
 
     /// Primary accent (magenta)
-    pub inline fn accent() []const u8 {
+    pub fn accent() []const u8 {
         return getTheme().magenta;
     }
 
     /// Code/command text (orange)
-    pub inline fn code() []const u8 {
+    pub fn code() []const u8 {
         return getTheme().orange;
     }
 
     /// Links (blue1)
-    pub inline fn link() []const u8 {
+    pub fn link() []const u8 {
         return getTheme().blue1;
     }
 
     /// Reset to default
-    pub inline fn reset() []const u8 {
+    pub fn reset() []const u8 {
         return "\x1b[0m";
     }
 };
 
 /// Print colored text with automatic reset
-pub fn print(comptime color_fn: fn () []const u8, comptime fmt: []const u8, args: anytype) void {
+pub fn print(color_fn: *const fn () []const u8, comptime fmt: []const u8, args: anytype) void {
     std.debug.print("{s}", .{color_fn()});
     std.debug.print(fmt, args);
     std.debug.print("{s}", .{Colors.reset()});

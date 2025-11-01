@@ -13,6 +13,8 @@ pub const context = @import("context/mod.zig");
 pub const concurrent = @import("concurrent/mod.zig");
 pub const system = @import("system/arch.zig");
 pub const tui = @import("tui/mod.zig");
+pub const ui = @import("ui/mod.zig");
+pub const usage = @import("usage/mod.zig");
 pub const routing = struct {
     pub const SmartRouter = @import("routing/router.zig").SmartRouter;
     pub const RoutingConfig = @import("routing/router.zig").RoutingConfig;
@@ -66,6 +68,7 @@ pub const Zeke = struct {
     concurrent_ai: ?concurrent.ConcurrentAI,
     arch_system: ?system.ArchSystem,
     realtime_features: ?streaming.RealTimeFeatures,
+    token_tracker: usage.TokenTracker,
     current_model: []const u8,
     current_provider: api.ApiProvider,
 
@@ -139,6 +142,7 @@ pub const Zeke = struct {
             .concurrent_ai = concurrent_ai,
             .arch_system = arch_system,
             .realtime_features = null, // Initialized on demand
+            .token_tracker = usage.TokenTracker.init(allocator),
             .current_model = zeke_config.default_model,
             .current_provider = best_provider,
         };
@@ -148,6 +152,7 @@ pub const Zeke = struct {
         self.config.deinit();
         self.auth_manager.deinit();
         self.api_client.deinit();
+        self.token_tracker.deinit();
         self.provider_manager.deinit();
         self.fallback_manager.deinit();
         self.context_cache.deinit();
@@ -210,8 +215,48 @@ pub const Zeke = struct {
         };
 
         const response = try self.api_client.chatCompletion(&messages, self.current_model);
+
+        // Track token usage if available
+        if (response.usage) |usage_data| {
+            try self.token_tracker.track(self.current_provider, usage_data);
+        }
+
         // Note: caller must free response.content
         return response.content;
+    }
+
+    /// Chat with detailed response including usage data
+    pub fn chatWithUsage(self: *Self, message: []const u8) !api.ChatResponse {
+        const messages = [_]api.ChatMessage{
+            .{ .role = "user", .content = message },
+        };
+
+        const response = try self.api_client.chatCompletion(&messages, self.current_model);
+
+        // Track token usage if available
+        if (response.usage) |usage_data| {
+            try self.token_tracker.track(self.current_provider, usage_data);
+        }
+
+        return response;
+    }
+
+    /// Print token usage summary for the current session
+    pub fn printUsageSummary(self: *Self) !void {
+        try self.token_tracker.printSummary(self.allocator);
+    }
+
+    /// Print compact usage info (for after each response)
+    pub fn printLastUsage(self: *Self) void {
+        if (self.token_tracker.getProviderUsage(self.current_provider)) |provider_usage| {
+            // Create a simple usage struct for the last request
+            // This is an approximation - ideally we'd track the last request separately
+            self.token_tracker.printCompact(self.current_provider, api.Usage{
+                .prompt_tokens = 0,
+                .completion_tokens = 0,
+                .total_tokens = provider_usage.total_tokens,
+            });
+        }
     }
 
     pub fn completeCode(self: *Self, prompt: []const u8, code_context: api.CodeContext) ![]const u8 {
