@@ -52,6 +52,13 @@ pub const TokyoNight = struct {
     pub const status_active = green;       // Green for "Thinking..."
     pub const status_info = blue1;         // Teal for info messages
     pub const divider_color = comment;     // Dim dividers
+
+    // UI-specific semantic colors
+    pub const bg_primary = bg;             // Primary background
+    pub const bg_secondary = bg_dark;      // Secondary/panel background
+    pub const text_primary = fg;           // Primary text
+    pub const text_secondary = fg_dark;    // Secondary/dimmed text
+    pub const text_dim = comment;          // Very dimmed text (comments)
 };
 
 /// ZEKE Logo ASCII Art
@@ -74,6 +81,14 @@ pub const ZekeLogo = struct {
         \\╚═══════════════════════════════╝
     ;
 };
+
+/// Helper to write N spaces
+fn writeSpaces(writer: anytype, count: usize) !void {
+    var i: usize = 0;
+    while (i < count) : (i += 1) {
+        try writer.writeAll(" ");
+    }
+}
 
 /// Welcome Screen Layout
 pub const WelcomeScreen = struct {
@@ -191,8 +206,10 @@ pub const WelcomeScreen = struct {
         defer self.allocator.free(welcome);
 
         try writer.writeAll(welcome);
-        const padding1 = 24 - welcome.len;
-        try writer.writeAll(" " ** @min(padding1, 24));
+        if (welcome.len < 24) {
+            const padding1 = 24 - welcome.len;
+            try writeSpaces(writer, padding1);
+        }
 
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);
@@ -257,8 +274,10 @@ pub const WelcomeScreen = struct {
         defer self.allocator.free(model_line);
 
         try writer.writeAll(model_line);
-        const padding2 = 24 - model_line.len;
-        try writer.writeAll(" " ** @min(padding2, 24));
+        if (model_line.len < 24) {
+            const padding2 = 24 - model_line.len;
+            try writeSpaces(writer, padding2);
+        }
 
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);
@@ -280,8 +299,10 @@ pub const WelcomeScreen = struct {
 
         const truncated = if (dir_line.len > 24) dir_line[0..24] else dir_line;
         try writer.writeAll(truncated);
-        const padding3 = 24 - truncated.len;
-        try writer.writeAll(" " ** @min(padding3, 24));
+        if (truncated.len < 24) {
+            const padding3 = 24 - truncated.len;
+            try writeSpaces(writer, padding3);
+        }
 
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);

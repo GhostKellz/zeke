@@ -967,17 +967,49 @@ fn handleSmartExplain(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, c
     }
 }
 
-fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
-    var tui_app = zeke.tui.TuiApp.init(allocator, @ptrCast(zeke_instance)) catch |err| {
-        std.log.err("Failed to initialize TUI: {}", .{err});
-        return;
-    };
-    defer tui_app.deinit();
+// Simple writer that wraps ArrayList for Zig 0.16
+const StdoutWriter = struct {
+    buffer: *std.ArrayList(u8),
+    allocator: std.mem.Allocator,
 
-    tui_app.run() catch |err| {
-        std.log.err("TUI error: {}", .{err});
-        return;
-    };
+    const Error = error{OutOfMemory};
+    const Self = @This();
+
+    pub fn writeAll(self: Self, bytes: []const u8) Error!void {
+        try self.buffer.appendSlice(self.allocator, bytes);
+    }
+};
+
+fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
+    _ = zeke_instance; // Will use this later for interactive mode
+
+    const tokyo = @import("tui/tokyo_night.zig");
+
+    // Get username from environment
+    const username = std.posix.getenv("USER") orelse "User";
+
+    // Get current directory
+    var cwd_buf: [1024]u8 = undefined;
+    const cwd = try std.fs.cwd().realpath(".", &cwd_buf);
+
+    // Create welcome screen
+    var screen = tokyo.WelcomeScreen.init(
+        allocator,
+        username,
+        "Sonnet 4.5 • Claude Max",
+        cwd,
+    );
+
+    // Render to stdout using a buffer - Zig 0.16 ArrayList API
+    var buffer = std.ArrayList(u8){};
+    defer buffer.deinit(allocator);
+
+    const writer = StdoutWriter{ .buffer = &buffer, .allocator = allocator };
+    try screen.render(writer);
+
+    // Print the buffer to stdout (not stderr like debug.print)
+    const stdout = std.posix.STDOUT_FILENO;
+    _ = try std.posix.write(stdout, buffer.items);
 }
 
 fn handleNvimCommand(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, args: []const [:0]u8) !void {
