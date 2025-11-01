@@ -90,6 +90,332 @@ fn writeSpaces(writer: anytype, count: usize) !void {
     }
 }
 
+/// Inline Diff View for code changes
+pub const DiffView = struct {
+    allocator: std.mem.Allocator,
+    file_path: []const u8,
+    old_content: []const u8,
+    new_content: []const u8,
+
+    const Self = @This();
+
+    pub const DiffLine = struct {
+        line_type: enum { added, removed, unchanged },
+        content: []const u8,
+        line_num_old: ?usize,
+        line_num_new: ?usize,
+    };
+
+    pub fn init(allocator: std.mem.Allocator, file_path: []const u8, old_content: []const u8, new_content: []const u8) Self {
+        return Self{
+            .allocator = allocator,
+            .file_path = file_path,
+            .old_content = old_content,
+            .new_content = new_content,
+        };
+    }
+
+    pub fn render(self: *const Self, writer: anytype) !void {
+        const c = TokyoNight;
+
+        // Title
+        try writer.writeAll(c.bg);
+        try writer.writeAll(c.border_color);
+        try writer.writeAll("┌─ Diff: ");
+        try writer.writeAll(c.cyan);
+        try writer.writeAll(self.file_path);
+        try writer.writeAll(c.border_color);
+        try writeSpaces(writer, 65 - self.file_path.len);
+        try writer.writeAll("─┐\n");
+
+        // Render unified diff
+        try self.renderUnifiedDiff(writer);
+
+        // Footer
+        try writer.writeAll(c.border_color);
+        try writer.writeAll("└");
+        try writeSpaces(writer, 77);
+        try writer.writeAll("┘\n");
+        try writer.writeAll(c.reset);
+    }
+
+    fn renderUnifiedDiff(self: *const Self, writer: anytype) !void {
+        const c = TokyoNight;
+
+        var old_lines = std.mem.split(u8, self.old_content, "\n");
+        var new_lines = std.mem.split(u8, self.new_content, "\n");
+
+        var old_line_num: usize = 1;
+        var new_line_num: usize = 1;
+
+        // Simple line-by-line diff (could be enhanced with LCS algorithm)
+        var old_list = std.ArrayList([]const u8){};
+        defer old_list.deinit(self.allocator);
+        var new_list = std.ArrayList([]const u8){};
+        defer new_list.deinit(self.allocator);
+
+        while (old_lines.next()) |line| {
+            try old_list.append(self.allocator, line);
+        }
+        while (new_lines.next()) |line| {
+            try new_list.append(self.allocator, line);
+        }
+
+        const max_lines = @max(old_list.items.len, new_list.items.len);
+        var i: usize = 0;
+        while (i < max_lines and i < 15) : (i += 1) {
+            const old_line = if (i < old_list.items.len) old_list.items[i] else null;
+            const new_line = if (i < new_list.items.len) new_list.items[i] else null;
+
+            if (old_line != null and new_line != null and std.mem.eql(u8, old_line.?, new_line.?)) {
+                // Unchanged line
+                try writer.writeAll(c.bg_primary);
+                try writer.writeAll(c.border_color);
+                try writer.writeAll("│ ");
+                try writer.writeAll(c.text_dim);
+
+                const line_num_str = try std.fmt.allocPrint(self.allocator, "{d:4} ", .{old_line_num});
+                defer self.allocator.free(line_num_str);
+                try writer.writeAll(line_num_str);
+
+                try writer.writeAll(c.fg_dark);
+                const truncated = if (old_line.?.len > 70) old_line.?[0..70] else old_line.?;
+                try writer.writeAll(truncated);
+                try writeSpaces(writer, 70 - truncated.len);
+                try writer.writeAll(c.border_color);
+                try writer.writeAll(" │\n");
+
+                old_line_num += 1;
+                new_line_num += 1;
+            } else if (old_line != null and (new_line == null or !std.mem.eql(u8, old_line.?, new_line.?))) {
+                // Removed line
+                try writer.writeAll(c.bg_primary);
+                try writer.writeAll(c.border_color);
+                try writer.writeAll("│ ");
+                try writer.writeAll(c.red);
+                try writer.writeAll("-");
+
+                const line_num_str = try std.fmt.allocPrint(self.allocator, "{d:4} ", .{old_line_num});
+                defer self.allocator.free(line_num_str);
+                try writer.writeAll(line_num_str);
+
+                const truncated = if (old_line.?.len > 69) old_line.?[0..69] else old_line.?;
+                try writer.writeAll(truncated);
+                try writeSpaces(writer, 69 - truncated.len);
+                try writer.writeAll(c.border_color);
+                try writer.writeAll(" │\n");
+
+                old_line_num += 1;
+            }
+
+            if (new_line != null and (old_line == null or !std.mem.eql(u8, old_line.?, new_line.?))) {
+                // Added line
+                try writer.writeAll(c.bg_primary);
+                try writer.writeAll(c.border_color);
+                try writer.writeAll("│ ");
+                try writer.writeAll(c.green);
+                try writer.writeAll("+");
+
+                const line_num_str = try std.fmt.allocPrint(self.allocator, "{d:4} ", .{new_line_num});
+                defer self.allocator.free(line_num_str);
+                try writer.writeAll(line_num_str);
+
+                const truncated = if (new_line.?.len > 69) new_line.?[0..69] else new_line.?;
+                try writer.writeAll(truncated);
+                try writeSpaces(writer, 69 - truncated.len);
+                try writer.writeAll(c.border_color);
+                try writer.writeAll(" │\n");
+
+                new_line_num += 1;
+            }
+        }
+
+        try writer.writeAll(c.reset);
+    }
+};
+
+/// Interactive TUI Session
+pub const InteractiveTUI = struct {
+    allocator: std.mem.Allocator,
+    username: []const u8,
+    model: []const u8,
+    current_dir: []const u8,
+    input_buffer: std.ArrayList(u8),
+    chat_history: std.ArrayList(ChatMessage),
+    running: bool,
+
+    const Self = @This();
+
+    pub const ChatMessage = struct {
+        role: enum { user, assistant },
+        content: []const u8,
+    };
+
+    pub fn init(allocator: std.mem.Allocator, username: []const u8, model: []const u8, current_dir: []const u8) !Self {
+        return Self{
+            .allocator = allocator,
+            .username = username,
+            .model = model,
+            .current_dir = current_dir,
+            .input_buffer = std.ArrayList(u8){},
+            .chat_history = std.ArrayList(ChatMessage){},
+            .running = true,
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.input_buffer.deinit(self.allocator);
+        for (self.chat_history.items) |msg| {
+            self.allocator.free(msg.content);
+        }
+        self.chat_history.deinit(self.allocator);
+    }
+
+    pub fn handleInput(self: *Self, key: u8) !void {
+        switch (key) {
+            '\n', '\r' => try self.submitCommand(),
+            127, 8 => try self.backspace(), // Backspace/Delete
+            3 => self.running = false, // Ctrl+C
+            27 => self.running = false, // ESC
+            32...126 => try self.input_buffer.append(self.allocator, key), // Printable chars
+            else => {},
+        }
+    }
+
+    fn submitCommand(self: *Self) !void {
+        if (self.input_buffer.items.len == 0) return;
+
+        const command = try self.allocator.dupe(u8, self.input_buffer.items);
+        try self.chat_history.append(self.allocator, .{
+            .role = .user,
+            .content = command,
+        });
+
+        // Clear input buffer
+        self.input_buffer.clearRetainingCapacity();
+    }
+
+    fn backspace(self: *Self) !void {
+        if (self.input_buffer.items.len > 0) {
+            _ = self.input_buffer.pop();
+        }
+    }
+
+    pub fn render(self: *const Self, writer: anytype) !void {
+        const c = TokyoNight;
+
+        // Clear screen
+        try writer.writeAll("\x1b[2J\x1b[H");
+
+        // Title bar
+        try writer.writeAll(c.bg);
+        try writer.writeAll(c.border_color);
+        try writer.writeAll("┌");
+        try writeSpaces(writer, 77);
+        try writer.writeAll("┐\n│");
+        try writeSpaces(writer, 30);
+        try writer.writeAll(c.header_text);
+        try writer.writeAll(c.bold);
+        try writer.writeAll("⚡ ZEKE Interactive");
+        try writer.writeAll(c.reset);
+        try writer.writeAll(c.bg);
+        try writer.writeAll(c.border_color);
+        try writeSpaces(writer, 28);
+        try writer.writeAll("│\n├");
+        try writeSpaces(writer, 77);
+        try writer.writeAll("┤\n");
+
+        // Chat history area
+        try self.renderChatHistory(writer);
+
+        // Input area
+        try self.renderInputArea(writer);
+
+        // Footer
+        try writer.writeAll(c.border_color);
+        try writer.writeAll("│ ");
+        try writer.writeAll(c.text_dim);
+        try writer.writeAll("Ctrl+C or ESC to exit");
+        try writeSpaces(writer, 30);
+        try writer.writeAll(c.text_secondary);
+        try writer.writeAll(self.model);
+        try writeSpaces(writer, 5);
+        try writer.writeAll(c.border_color);
+        try writer.writeAll(" │\n└");
+        try writeSpaces(writer, 77);
+        try writer.writeAll("┘\n");
+
+        try writer.writeAll(c.reset);
+    }
+
+    fn renderChatHistory(self: *const Self, writer: anytype) !void {
+        const c = TokyoNight;
+        const max_messages = 10;
+
+        // Show last N messages
+        const start_idx = if (self.chat_history.items.len > max_messages)
+            self.chat_history.items.len - max_messages
+        else
+            0;
+
+        for (self.chat_history.items[start_idx..]) |msg| {
+            try writer.writeAll(c.bg_primary);
+            try writer.writeAll(c.border_color);
+            try writer.writeAll("│ ");
+
+            if (msg.role == .user) {
+                try writer.writeAll(c.cyan);
+                try writer.writeAll("> ");
+                try writer.writeAll(c.fg);
+            } else {
+                try writer.writeAll(c.green);
+                try writer.writeAll("< ");
+                try writer.writeAll(c.fg);
+            }
+
+            try writer.writeAll(msg.content);
+            try writeSpaces(writer, 73 - msg.content.len);
+            try writer.writeAll(c.border_color);
+            try writer.writeAll(" │\n");
+        }
+
+        // Fill remaining space
+        const shown = self.chat_history.items.len - start_idx;
+        var i: usize = shown;
+        while (i < 10) : (i += 1) {
+            try writer.writeAll(c.bg_primary);
+            try writer.writeAll(c.border_color);
+            try writer.writeAll("│");
+            try writeSpaces(writer, 77);
+            try writer.writeAll("│\n");
+        }
+        try writer.writeAll(c.reset);
+    }
+
+    fn renderInputArea(self: *const Self, writer: anytype) !void {
+        const c = TokyoNight;
+
+        try writer.writeAll(c.bg_primary);
+        try writer.writeAll(c.border_color);
+        try writer.writeAll("├");
+        try writeSpaces(writer, 77);
+        try writer.writeAll("┤\n│ ");
+        try writer.writeAll(c.cyan);
+        try writer.writeAll("> ");
+        try writer.writeAll(c.fg);
+        try writer.writeAll(self.input_buffer.items);
+
+        const remaining = 73 - self.input_buffer.items.len;
+        if (remaining > 0) {
+            try writeSpaces(writer, remaining);
+        }
+
+        try writer.writeAll(c.border_color);
+        try writer.writeAll(" │\n");
+        try writer.writeAll(c.reset);
+    }
+};
+
 /// Welcome Screen Layout
 pub const WelcomeScreen = struct {
     allocator: std.mem.Allocator,
