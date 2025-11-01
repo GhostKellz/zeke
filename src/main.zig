@@ -108,9 +108,41 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
 
     if (std.mem.eql(u8, command, "chat")) {
         if (args.len > 2) {
-            try handleChat(&zeke_instance, allocator, args[2]);
+            // Check for flags
+            var message_idx: usize = 2;
+            var stream_mode = false;
+            var json_mode = false;
+
+            // Parse flags
+            for (args[2..], 0..) |arg, i| {
+                if (std.mem.eql(u8, arg, "--stream")) {
+                    stream_mode = true;
+                    message_idx = 2 + i + 1;
+                } else if (std.mem.eql(u8, arg, "--json")) {
+                    json_mode = true;
+                    message_idx = 2 + i + 1;
+                } else {
+                    // Found the message
+                    break;
+                }
+            }
+
+            if (message_idx >= args.len) {
+                std.debug.print("Usage: zeke chat [--stream] [--json] \"your message\"\n", .{});
+                return;
+            }
+
+            const message = args[message_idx];
+
+            if (stream_mode and json_mode) {
+                try cli_streaming.handleStreamingChatJson(&zeke_instance, allocator, message);
+            } else if (stream_mode) {
+                try cli_streaming.handleStreamingChat(&zeke_instance, allocator, message);
+            } else {
+                try handleChat(&zeke_instance, allocator, message);
+            }
         } else {
-            std.debug.print("Usage: zeke chat \"your message\"\n", .{});
+            std.debug.print("Usage: zeke chat [--stream] [--json] \"your message\"\n", .{});
         }
     } else if (std.mem.eql(u8, command, "ask")) {
         if (args.len > 2) {
@@ -213,8 +245,6 @@ fn zekeMain(allocator: std.mem.Allocator) !void {
             try help.showHelp(allocator);
         }
     } else if (std.mem.eql(u8, command, "version") or std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "-v")) {
-        std.debug.print("⚡ ZEKE - The Zig-Native AI Dev Companion\n", .{});
-        std.debug.print("Ready to assist with your coding workflow!\n", .{});
         std.debug.print("ZEKE v{s}\n", .{VERSION});
     } else if (std.mem.eql(u8, command, "usage")) {
         try handleUsageCommand(&zeke_instance, allocator, if (args.len > 2) args[2..] else &[_][:0]u8{});
@@ -1605,7 +1635,7 @@ fn handleNvimAnalyze(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, co
 }
 
 fn printUsage() !void {
-    std.debug.print("⚡ ZEKE v{s} - The Zig-Native AI Dev Companion\n", .{VERSION});
+    std.debug.print("⚡ ZEKE v{s}\n", .{VERSION});
     std.debug.print("🚀 Multi-Provider AI with Smart Routing & Real-Time Features\n", .{});
     std.debug.print("\n📋 Basic Commands:\n", .{});
     std.debug.print("  zeke chat \"your message\"              - Chat with AI\n", .{});

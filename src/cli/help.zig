@@ -50,9 +50,9 @@ pub const Help = struct {
 
     fn printHeader(self: Help, writer: anytype) !void {
         if (self.use_color) {
-            try writer.print("{s}{s}⚡ ZEKE{s} v0.3.2 - The Zig-Native AI Dev Companion\n", .{ Color.bold, Color.cyan, Color.reset });
+            try writer.print("{s}{s}⚡ ZEKE{s} v0.3.2\n", .{ Color.bold, Color.cyan, Color.reset });
         } else {
-            try writer.writeAll("ZEKE v0.3.2 - The Zig-Native AI Dev Companion\n");
+            try writer.writeAll("ZEKE v0.3.2\n");
         }
     }
 

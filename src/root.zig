@@ -762,8 +762,7 @@ pub const Zeke = struct {
 };
 
 pub fn bufferedPrint() !void {
-    std.debug.print("⚡ ZEKE - The Zig-Native AI Dev Companion\n", .{});
-    std.debug.print("Ready to assist with your coding workflow!\n", .{});
+    std.debug.print("⚡ ZEKE\n", .{});
 }
 
 pub fn add(a: i32, b: i32) i32 {

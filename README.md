@@ -2,7 +2,7 @@
   <img src="assets/zeke-logo.png" alt="Zeke Logo" width="128" height="128" />
 </div>
 
-# ⚡ ZEKE v0.3.1 - The Zig-Native AI Dev Companion
+# ⚡ ZEKE v0.3.2
 
 <div align="center">
 
@@ -10,13 +10,9 @@
 ![Zig Version](https://img.shields.io/badge/Zig-0.16.0--dev-orange?style=for-the-badge)
 ![Multi-Provider AI](https://img.shields.io/badge/Multi--Provider-AI-blue?style=for-the-badge&logo=openai&logoColor=white)
 ![Async Runtime](https://img.shields.io/badge/Async-Runtime-green?style=for-the-badge&logo=lightning&logoColor=white)
-![Version](https://img.shields.io/badge/Version-0.3.1-brightgreen?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-0.3.2-brightgreen?style=for-the-badge)
 
 </div>
-
----
-## 🧠 Guiding Principle
-**Zeke thinks. Omen routes. GhostLLM speaks. Glyph connects. Rune acts. Grim creates.**
 
 ---
 ### The Next-Gen AI Copilot for CLI & Development Workflows
