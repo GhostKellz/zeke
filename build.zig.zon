@@ -83,6 +83,14 @@
             .url = "https://github.com/ghostkellz/zrpc/archive/refs/heads/main.tar.gz",
             .hash = "zrpc-0.1.0-b2XibxcnCABT6GCuPe6brXrWWCFo0SYw3xFOET6d6VBd",
         },
+        .gcode = .{
+            .url = "https://github.com/ghostkellz/gcode/archive/refs/heads/main.tar.gz",
+            .hash = "gcode-0.1.0-AWO1LsMKDwDmRZJBAvEZSO_lEbpzF0Yi4V2yCkTRdJVD",
+        },
+        .zfont = .{
+            .url = "https://github.com/ghostkellz/zfont/archive/refs/heads/main.tar.gz",
+            .hash = "zfont-0.1.0-qcMRYK2ICwA3x_9gRT2lotL7ZS4fUA1bRNQi9JKAn8Kw",
+        },
     },
 
     .paths = .{

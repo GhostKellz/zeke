@@ -59,6 +59,14 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const gcode = b.dependency("gcode", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zfont = b.dependency("zfont", .{
+        .target = target,
+        .optimize = optimize,
+    });
     const zhttp = b.dependency("zhttp", .{
         .target = target,
         .optimize = optimize,
@@ -150,6 +158,8 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "grove", .module = grove.module("grove") },
                 .{ .name = "rune", .module = rune.module("rune") },
                 .{ .name = "ghostlang", .module = ghostlang.module("ghostlang") },
+                .{ .name = "gcode", .module = gcode.module("gcode") },
+                .{ .name = "zfont", .module = zfont.module("zfont") },
             },
         }),
     });

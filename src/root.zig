@@ -1,6 +1,7 @@
 //! ZEKE - The Zig-Native AI Dev Companion
 const std = @import("std");
 const zsync = @import("zsync");
+pub const gcode = @import("gcode");
 
 // Re-export all modules
 pub const api = @import("api/client.zig");

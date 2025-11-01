@@ -50,9 +50,9 @@ pub const Help = struct {
 
     fn printHeader(self: Help, writer: anytype) !void {
         if (self.use_color) {
-            try writer.print("{s}{s}⚡ ZEKE{s} v0.3.2\n", .{ Color.bold, Color.cyan, Color.reset });
+            try writer.print("{s}{s}⚡ ZEKE{s} v0.3.3\n", .{ Color.bold, Color.cyan, Color.reset });
         } else {
-            try writer.writeAll("ZEKE v0.3.2\n");
+            try writer.writeAll("ZEKE v0.3.3\n");
         }
     }
 
@@ -165,7 +165,8 @@ pub const Help = struct {
         const examples = [_]struct { desc: []const u8, cmd: []const u8 }{
             .{ .desc = "Chat with AI about code", .cmd = "zeke chat \"How do I implement async in Zig?\"" },
             .{ .desc = "Start HTTP server", .cmd = "zeke serve" },
-            .{ .desc = "Authenticate with Claude", .cmd = "zeke auth google" },
+            .{ .desc = "Authenticate with Claude", .cmd = "zeke auth claude" },
+            .{ .desc = "Authenticate with Copilot", .cmd = "zeke auth copilot" },
             .{ .desc = "Check system health", .cmd = "zeke doctor" },
             .{ .desc = "Edit a file", .cmd = "zeke edit src/main.zig \"add error handling\"" },
             .{ .desc = "Generate completions", .cmd = "zeke completion bash > /etc/bash_completion.d/zeke" },
@@ -274,17 +275,19 @@ pub const Help = struct {
         try writer.writeAll("    zeke auth <SUBCOMMAND> [ARGS]\n\n");
 
         try writer.writeAll("SUBCOMMANDS:\n");
-        try writer.writeAll("    google              Authenticate with Google OAuth\n");
-        try writer.writeAll("    github              Authenticate with GitHub OAuth\n");
+        try writer.writeAll("    claude              Authenticate with Claude (OAuth)\n");
+        try writer.writeAll("    copilot             Authenticate with GitHub Copilot (OAuth)\n");
         try writer.writeAll("    openai <KEY>        Add OpenAI API key\n");
         try writer.writeAll("    anthropic <KEY>     Add Anthropic API key\n");
         try writer.writeAll("    xai <KEY>           Add xAI API key\n");
+        try writer.writeAll("    google <KEY>        Add Google AI/Gemini API key\n");
         try writer.writeAll("    azure <KEY>         Configure Azure OpenAI\n");
         try writer.writeAll("    list                List configured providers\n");
         try writer.writeAll("    test <PROVIDER>     Test authentication\n\n");
 
         try writer.writeAll("EXAMPLES:\n");
-        try writer.writeAll("    zeke auth google\n");
+        try writer.writeAll("    zeke auth claude\n");
+        try writer.writeAll("    zeke auth copilot\n");
         try writer.writeAll("    zeke auth openai sk-proj-...\n");
         try writer.writeAll("    zeke auth list\n");
         try writer.writeAll("    zeke auth test claude\n");

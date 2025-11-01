@@ -57,6 +57,7 @@ Accept completions, chat, run `/explain`, `/fix`, and more—all inside Neovim o
 > * Zig v0.16+
 > * Neovim 0.9+
 > * AI provider accounts
+> * **Nerd Font** (FiraCode NF, JetBrains Mono NF, Iosevka NF recommended) - [See FONTS.md](FONTS.md)
 
 **Using Zig package manager:**
 ```sh

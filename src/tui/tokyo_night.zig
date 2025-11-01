@@ -1,39 +1,47 @@
 const std = @import("std");
 const phantom = @import("phantom");
+const gcode = @import("gcode");
 
-/// Tokyo Night Color Palette - Official Night Theme
-/// Source: https://github.com/folke/tokyonight.nvim
+/// Ghost Hacker Blue Theme - Custom vivid Tokyo Night variant
+/// Based on: archive/vivid/ghost-hacker-blue.yml
+/// Features: Vivid teals, aquas, and mint greens with deep blue backgrounds
 pub const TokyoNight = struct {
-    // Background colors (official Tokyo Night Night theme)
-    pub const bg = "\x1b[48;2;26;27;38m";              // #1a1b26 (main bg)
-    pub const bg_dark = "\x1b[48;2;22;22;30m";         // #16161e (darker panels)
-    pub const bg_highlight = "\x1b[48;2;41;46;66m";    // #292e42
-    pub const bg_visual = "\x1b[48;2;40;52;87m";       // #283457
+    // Background colors (ghost-hacker-blue theme)
+    pub const bg = "\x1b[48;2;34;36;54m";              // #222436 (main bg)
+    pub const bg_dark = "\x1b[48;2;45;63;118m";        // #2d3f76 (darker panels/bg_visual)
+    pub const bg_highlight = "\x1b[48;2;68;74;115m";   // #444a73 (terminal_black)
+    pub const bg_visual = "\x1b[48;2;45;63;118m";      // #2d3f76
 
     // Text colors
-    pub const fg = "\x1b[38;2;192;202;245m";           // #c0caf5 (main text)
-    pub const fg_dark = "\x1b[38;2;169;177;214m";      // #a9b1d6 (dimmed)
-    pub const comment = "\x1b[38;2;86;95;137m";        // #565f89 (comments)
+    pub const fg = "\x1b[38;2;200;211;245m";           // #c8d3f5 (main text)
+    pub const fg_dark = "\x1b[38;2;192;202;245m";      // #c0caf5 (blue_moon)
+    pub const comment = "\x1b[38;2;99;109;166m";       // #636da6 (comments)
 
-    // Primary accent colors (replacing orange with teal/green)
-    pub const blue1 = "\x1b[38;2;42;195;222m";         // #2ac3de (TEAL - our primary)
-    pub const blue2 = "\x1b[38;2;13;185;215m";         // #0db9d7 (darker teal)
-    pub const cyan = "\x1b[38;2;125;207;255m";         // #7dcfff (bright cyan)
-    pub const green = "\x1b[38;2;158;206;106m";        // #9ece6a (MINTY GREEN - our secondary)
-    pub const green1 = "\x1b[38;2;115;218;202m";       // #73daca (teal-green hybrid)
-    pub const teal = "\x1b[38;2;26;188;156m";          // #1abc9c (pure teal)
+    // Primary accent colors - VIVID teals and aquas
+    pub const teal = "\x1b[38;2;79;214;190m";          // #4fd6be (teal/green2) - PRIMARY
+    pub const mint = "\x1b[38;2;102;255;194m";         // #66ffc2 (mint) - ACCENT
+    pub const aqua_tealish = "\x1b[38;2;102;255;224m"; // #66ffe0 (aqua_tealish)
+    pub const blue1 = "\x1b[38;2;180;249;248m";        // #b4f9f8 (blue6/icy)
+    pub const blue2 = "\x1b[38;2;13;185;215m";         // #0db9d7 (blue2/info)
+    pub const cyan = "\x1b[38;2;137;221;255m";         // #89ddff (blue5)
+    pub const green = "\x1b[38;2;195;232;141m";        // #c3e88d (green1)
+    pub const green1 = "\x1b[38;2;79;214;190m";        // #4fd6be (same as teal)
 
     // Supporting colors
-    pub const blue = "\x1b[38;2;122;162;247m";         // #7aa2f7 (standard blue)
-    pub const purple = "\x1b[38;2;187;154;247m";       // #bb9af7
-    pub const magenta = "\x1b[38;2;187;154;247m";      // #bb9af7
-    pub const red = "\x1b[38;2;247;118;142m";          // #f7768e (soft red)
-    pub const orange = "\x1b[38;2;255;158;100m";       // #ff9e64 (REPLACED by green in UI)
-    pub const yellow = "\x1b[38;2;224;175;104m";       // #e0af68
+    pub const blue = "\x1b[38;2;130;170;255m";         // #82aaff (blue6 from YAML)
+    pub const blue_moon = "\x1b[38;2;192;202;245m";    // #c0caf5
+    pub const purple = "\x1b[38;2;192;153;255m";       // #c099ff (magenta)
+    pub const magenta = "\x1b[38;2;192;153;255m";      // #c099ff
+    pub const pink = "\x1b[38;2;252;167;234m";         // #fca7ea (purple in YAML)
+    pub const red = "\x1b[38;2;197;59;83m";            // #c53b53 (red1/error)
+    pub const red2 = "\x1b[38;2;255;117;127m";         // #ff757f
+    pub const orange = "\x1b[38;2;255;150;108m";       // #ff966c
+    pub const yellow = "\x1b[38;2;255;199;119m";       // #ffc777
+    pub const goldish = "\x1b[38;2;212;175;55m";       // #d4af37
 
-    // Border colors (using our teal/cyan theme)
-    pub const border = "\x1b[38;2;21;22;30m";          // #15161e (subtle)
-    pub const border_highlight = "\x1b[38;2;39;161;185m"; // #27a1b9 (active teal)
+    // Border colors (using vivid teal theme)
+    pub const border = "\x1b[38;2;34;36;54m";          // #222436 (bg color)
+    pub const border_highlight = "\x1b[38;2;79;214;190m"; // #4fd6be (teal)
 
     // Special formatting
     pub const reset = "\x1b[0m";
@@ -42,15 +50,15 @@ pub const TokyoNight = struct {
     pub const italic = "\x1b[3m";
     pub const underline = "\x1b[4m";
 
-    // Semantic color assignments for ZEKE
-    pub const logo_primary = blue1;        // Teal for ⚡ ZEKE
-    pub const logo_accent = green;         // Minty green for accents
-    pub const border_color = blue1;        // Teal borders (replaces Claude's orange)
-    pub const active_element = green;      // Minty green for active/success states
+    // Semantic color assignments for ZEKE (Ghost Hacker Blue style)
+    pub const logo_primary = teal;         // Vivid teal for ⚡ ZEKE
+    pub const logo_accent = mint;          // Bright mint green for accents
+    pub const border_color = teal;         // Teal borders (signature color)
+    pub const active_element = mint;       // Mint for active/success states
     pub const header_text = cyan;          // Bright cyan for headers
-    pub const prompt_symbol = cyan;        // Cyan for > prompt
-    pub const status_active = green;       // Green for "Thinking..."
-    pub const status_info = blue1;         // Teal for info messages
+    pub const prompt_symbol = aqua_tealish;// Aqua-teal for > prompt
+    pub const status_active = mint;        // Mint for "Thinking..."
+    pub const status_info = teal;          // Teal for info messages
     pub const divider_color = comment;     // Dim dividers
 
     // UI-specific semantic colors
@@ -88,6 +96,72 @@ fn writeSpaces(writer: anytype, count: usize) !void {
     while (i < count) : (i += 1) {
         try writer.writeAll(" ");
     }
+}
+
+/// Calculate visual display width of text using gcode (skips ANSI escape codes)
+fn displayWidth(text: []const u8) usize {
+    var width: usize = 0;
+    var i: usize = 0;
+    while (i < text.len) {
+        // Skip ANSI escape sequences (ESC [ ... m)
+        if (i < text.len and text[i] == 0x1B) {
+            // Found ESC, skip until we find 'm'
+            i += 1;
+            while (i < text.len and text[i] != 'm') : (i += 1) {}
+            if (i < text.len) i += 1; // Skip the 'm'
+            continue;
+        }
+
+        const cp_len = std.unicode.utf8ByteSequenceLength(text[i]) catch 1;
+        if (i + cp_len > text.len) break;
+
+        const cp = std.unicode.utf8Decode(text[i..][0..cp_len]) catch {
+            i += 1;
+            width += 1;
+            continue;
+        };
+
+        width += gcode.getWidth(@intCast(cp));
+        i += cp_len;
+    }
+    return width;
+}
+
+/// Truncate text to fit max_width with ellipsis if needed
+fn truncateToWidth(allocator: std.mem.Allocator, text: []const u8, max_width: usize) ![]const u8 {
+    const text_width = displayWidth(text);
+    if (text_width <= max_width) {
+        return try allocator.dupe(u8, text);
+    }
+
+    // Need to truncate - calculate how much to keep
+    var width: usize = 0;
+    var i: usize = 0;
+    const ellipsis = "...";
+    const ellipsis_width: usize = 3;
+
+    while (i < text.len and width + ellipsis_width < max_width) {
+        const cp_len = std.unicode.utf8ByteSequenceLength(text[i]) catch 1;
+        if (i + cp_len > text.len) break;
+
+        const cp = std.unicode.utf8Decode(text[i..][0..cp_len]) catch {
+            i += 1;
+            width += 1;
+            continue;
+        };
+
+        const char_width = gcode.getWidth(@intCast(cp));
+        if (width + char_width + ellipsis_width > max_width) break;
+
+        width += char_width;
+        i += cp_len;
+    }
+
+    // Build truncated string with ellipsis
+    const result = try allocator.alloc(u8, i + ellipsis.len);
+    @memcpy(result[0..i], text[0..i]);
+    @memcpy(result[i..], ellipsis);
+    return result;
 }
 
 /// Inline Diff View for code changes
@@ -501,12 +575,116 @@ pub const InteractiveTUI = struct {
     }
 };
 
+/// Color Palette - holds runtime theme colors
+pub const ColorPalette = struct {
+    // All color fields from TokyoNight
+    bg: []const u8,
+    bg_dark: []const u8,
+    bg_highlight: []const u8,
+    bg_visual: []const u8,
+    fg: []const u8,
+    fg_dark: []const u8,
+    comment: []const u8,
+    teal: []const u8,
+    mint: []const u8,
+    aqua_tealish: []const u8,
+    blue1: []const u8,
+    blue2: []const u8,
+    cyan: []const u8,
+    green: []const u8,
+    green1: []const u8,
+    blue: []const u8,
+    blue_moon: []const u8,
+    purple: []const u8,
+    magenta: []const u8,
+    pink: []const u8,
+    red: []const u8,
+    red2: []const u8,
+    orange: []const u8,
+    yellow: []const u8,
+    goldish: []const u8,
+    border: []const u8,
+    border_highlight: []const u8,
+    reset: []const u8,
+    bold: []const u8,
+    dim_text: []const u8,
+    italic: []const u8,
+    underline: []const u8,
+    logo_primary: []const u8,
+    logo_accent: []const u8,
+    border_color: []const u8,
+    active_element: []const u8,
+    header_text: []const u8,
+    prompt_symbol: []const u8,
+    status_active: []const u8,
+    status_info: []const u8,
+    divider_color: []const u8,
+    bg_primary: []const u8,
+    bg_secondary: []const u8,
+    text_primary: []const u8,
+    text_secondary: []const u8,
+    text_dim: []const u8,
+
+    /// Create palette from static TokyoNight struct (for compatibility)
+    pub fn fromStatic() ColorPalette {
+        return .{
+            .bg = TokyoNight.bg,
+            .bg_dark = TokyoNight.bg_dark,
+            .bg_highlight = TokyoNight.bg_highlight,
+            .bg_visual = TokyoNight.bg_visual,
+            .fg = TokyoNight.fg,
+            .fg_dark = TokyoNight.fg_dark,
+            .comment = TokyoNight.comment,
+            .teal = TokyoNight.teal,
+            .mint = TokyoNight.mint,
+            .aqua_tealish = TokyoNight.aqua_tealish,
+            .blue1 = TokyoNight.blue1,
+            .blue2 = TokyoNight.blue2,
+            .cyan = TokyoNight.cyan,
+            .green = TokyoNight.green,
+            .green1 = TokyoNight.green1,
+            .blue = TokyoNight.blue,
+            .blue_moon = TokyoNight.blue_moon,
+            .purple = TokyoNight.purple,
+            .magenta = TokyoNight.magenta,
+            .pink = TokyoNight.pink,
+            .red = TokyoNight.red,
+            .red2 = TokyoNight.red2,
+            .orange = TokyoNight.orange,
+            .yellow = TokyoNight.yellow,
+            .goldish = TokyoNight.goldish,
+            .border = TokyoNight.border,
+            .border_highlight = TokyoNight.border_highlight,
+            .reset = TokyoNight.reset,
+            .bold = TokyoNight.bold,
+            .dim_text = TokyoNight.dim_text,
+            .italic = TokyoNight.italic,
+            .underline = TokyoNight.underline,
+            .logo_primary = TokyoNight.logo_primary,
+            .logo_accent = TokyoNight.logo_accent,
+            .border_color = TokyoNight.border_color,
+            .active_element = TokyoNight.active_element,
+            .header_text = TokyoNight.header_text,
+            .prompt_symbol = TokyoNight.prompt_symbol,
+            .status_active = TokyoNight.status_active,
+            .status_info = TokyoNight.status_info,
+            .divider_color = TokyoNight.divider_color,
+            .bg_primary = TokyoNight.bg_primary,
+            .bg_secondary = TokyoNight.bg_secondary,
+            .text_primary = TokyoNight.text_primary,
+            .text_secondary = TokyoNight.text_secondary,
+            .text_dim = TokyoNight.text_dim,
+        };
+    }
+};
+
 /// Welcome Screen Layout
 pub const WelcomeScreen = struct {
     allocator: std.mem.Allocator,
     username: []const u8,
     model: []const u8,
     current_dir: []const u8,
+    colors: ColorPalette,
 
     const Self = @This();
 
@@ -516,11 +694,12 @@ pub const WelcomeScreen = struct {
             .username = username,
             .model = model,
             .current_dir = current_dir,
+            .colors = ColorPalette.fromStatic(), // Use hardcoded ghost-hacker-blue for now
         };
     }
 
     pub fn render(self: *const Self, writer: anytype) !void {
-        const c = TokyoNight;
+        const c = self.colors;
 
         // Clear screen and move to top
         try writer.writeAll("\x1b[2J\x1b[H");
@@ -541,8 +720,7 @@ pub const WelcomeScreen = struct {
     }
 
     fn renderTitleBar(self: *const Self, writer: anytype) !void {
-        _ = self;
-        const c = TokyoNight;
+        const c = self.colors;
 
         // Top border with title
         try writer.writeAll(c.bg);
@@ -579,7 +757,7 @@ pub const WelcomeScreen = struct {
     }
 
     fn renderContentPanels(self: *const Self, writer: anytype) !void {
-        const c = TokyoNight;
+        const c = self.colors;
 
         // Panel top border
         try writer.writeAll(c.bg_primary);
@@ -612,7 +790,7 @@ pub const WelcomeScreen = struct {
     }
 
     fn renderLeftPanel(self: *const Self, writer: anytype) !void {
-        const c = TokyoNight;
+        const c = self.colors;
 
         // Row 1: Welcome message
         try writer.writeAll(c.bg_primary);
@@ -689,13 +867,22 @@ pub const WelcomeScreen = struct {
         try writer.writeAll(c.bg_secondary);
         try writer.writeAll(c.text_secondary);
 
-        const model_line = try std.fmt.allocPrint(self.allocator, "  {s}", .{self.model});
-        defer self.allocator.free(model_line);
+        // Clamp model name to max 20 chars to fit in 24-char box with "  " prefix
+        var model_display = self.model;
+        if (model_display.len > 20) {
+            model_display = model_display[0..17]; // Leave room for "..."
+            const temp = try std.fmt.allocPrint(self.allocator, "{s}...", .{model_display});
+            defer self.allocator.free(temp);
+            model_display = temp;
+        }
 
-        try writer.writeAll(model_line);
-        if (model_line.len < 24) {
-            const padding2 = 24 - model_line.len;
-            try writeSpaces(writer, padding2);
+        try writer.writeAll("  ");
+        try writer.writeAll(model_display);
+
+        // Pad to 24 chars total (including "  " prefix)
+        const used_len = 2 + model_display.len;
+        if (used_len < 24) {
+            try writeSpaces(writer, 24 - used_len);
         }
 
         try writer.writeAll(c.bg_primary);
@@ -743,8 +930,7 @@ pub const WelcomeScreen = struct {
     }
 
     fn renderCommandInput(self: *const Self, writer: anytype) !void {
-        _ = self;
-        const c = TokyoNight;
+        const c = self.colors;
 
         // Empty line
         try writer.writeAll(c.bg_primary);
@@ -772,8 +958,7 @@ pub const WelcomeScreen = struct {
     }
 
     fn renderFooter(self: *const Self, writer: anytype) !void {
-        _ = self;
-        const c = TokyoNight;
+        const c = self.colors;
 
         // Footer line
         try writer.writeAll(c.bg_primary);
