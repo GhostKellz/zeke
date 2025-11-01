@@ -244,11 +244,23 @@ pub const InteractiveTUI = struct {
     chat_history: std.ArrayList(ChatMessage),
     running: bool,
 
+    // New: Enhanced state tracking
+    scroll_offset: usize = 0,
+    thinking_mode: bool = false,
+    show_model_menu: bool = false,
+    total_tokens: u32 = 0,
+    prompt_tokens: u32 = 0,
+    completion_tokens: u32 = 0,
+    estimated_cost: f32 = 0.0,
+    streaming_response: std.ArrayList(u8),
+    is_streaming: bool = false,
+
     const Self = @This();
 
     pub const ChatMessage = struct {
         role: enum { user, assistant },
         content: []const u8,
+        tokens: u32 = 0,
     };
 
     pub fn init(allocator: std.mem.Allocator, username: []const u8, model: []const u8, current_dir: []const u8) !Self {
@@ -260,11 +272,13 @@ pub const InteractiveTUI = struct {
             .input_buffer = std.ArrayList(u8){},
             .chat_history = std.ArrayList(ChatMessage){},
             .running = true,
+            .streaming_response = std.ArrayList(u8){},
         };
     }
 
     pub fn deinit(self: *Self) void {
         self.input_buffer.deinit(self.allocator);
+        self.streaming_response.deinit(self.allocator);
         for (self.chat_history.items) |msg| {
             self.allocator.free(msg.content);
         }
@@ -301,6 +315,58 @@ pub const InteractiveTUI = struct {
         }
     }
 
+    // NEW: Scrolling support
+    pub fn scrollUp(self: *Self) void {
+        if (self.scroll_offset > 0) {
+            self.scroll_offset -= 1;
+        }
+    }
+
+    pub fn scrollDown(self: *Self) void {
+        const max_scroll = if (self.chat_history.items.len > 10)
+            self.chat_history.items.len - 10
+        else
+            0;
+        if (self.scroll_offset < max_scroll) {
+            self.scroll_offset += 1;
+        }
+    }
+
+    // NEW: Streaming support
+    pub fn startStreaming(self: *Self) !void {
+        self.is_streaming = true;
+        self.streaming_response.clearRetainingCapacity();
+    }
+
+    pub fn appendStreamChunk(self: *Self, chunk: []const u8) !void {
+        try self.streaming_response.appendSlice(self.allocator, chunk);
+    }
+
+    pub fn finishStreaming(self: *Self) !void {
+        self.is_streaming = false;
+        if (self.streaming_response.items.len > 0) {
+            const content = try self.allocator.dupe(u8, self.streaming_response.items);
+            try self.chat_history.append(self.allocator, .{
+                .role = .assistant,
+                .content = content,
+                .tokens = @intCast(self.streaming_response.items.len / 4), // Rough estimate
+            });
+            self.streaming_response.clearRetainingCapacity();
+        }
+    }
+
+    // NEW: Token tracking
+    pub fn addTokens(self: *Self, prompt: u32, completion: u32) void {
+        self.prompt_tokens += prompt;
+        self.completion_tokens += completion;
+        self.total_tokens = self.prompt_tokens + self.completion_tokens;
+
+        // Rough cost estimate: $3/M input, $15/M output for Sonnet 4.5
+        const input_cost = @as(f32, @floatFromInt(self.prompt_tokens)) * 3.0 / 1_000_000.0;
+        const output_cost = @as(f32, @floatFromInt(self.completion_tokens)) * 15.0 / 1_000_000.0;
+        self.estimated_cost = input_cost + output_cost;
+    }
+
     pub fn render(self: *const Self, writer: anytype) !void {
         const c = TokyoNight;
 
@@ -331,15 +397,28 @@ pub const InteractiveTUI = struct {
         // Input area
         try self.renderInputArea(writer);
 
-        // Footer
+        // Footer with enhanced info
         try writer.writeAll(c.border_color);
         try writer.writeAll("│ ");
         try writer.writeAll(c.text_dim);
-        try writer.writeAll("Ctrl+C or ESC to exit");
-        try writeSpaces(writer, 30);
-        try writer.writeAll(c.text_secondary);
-        try writer.writeAll(self.model);
+        try writer.writeAll("? help");
         try writeSpaces(writer, 5);
+        try writer.writeAll(c.yellow);
+
+        // Token and cost display
+        const stats = try std.fmt.allocPrint(
+            self.allocator,
+            "Tokens: {d} | Cost: ${d:.4}",
+            .{ self.total_tokens, self.estimated_cost },
+        );
+        defer self.allocator.free(stats);
+        try writer.writeAll(stats);
+
+        const stats_remaining = 60 - stats.len;
+        if (stats_remaining > 0) {
+            try writeSpaces(writer, stats_remaining);
+        }
+
         try writer.writeAll(c.border_color);
         try writer.writeAll(" │\n└");
         try writeSpaces(writer, 77);
@@ -373,8 +452,14 @@ pub const InteractiveTUI = struct {
                 try writer.writeAll(c.fg);
             }
 
-            try writer.writeAll(msg.content);
-            try writeSpaces(writer, 73 - msg.content.len);
+            // Truncate long messages to fit
+            const max_len: usize = 70;
+            const display_content = if (msg.content.len > max_len) msg.content[0..max_len] else msg.content;
+            try writer.writeAll(display_content);
+            const remaining_space = 73 - display_content.len;
+            if (remaining_space > 0) {
+                try writeSpaces(writer, remaining_space);
+            }
             try writer.writeAll(c.border_color);
             try writer.writeAll(" │\n");
         }
@@ -463,12 +548,15 @@ pub const WelcomeScreen = struct {
         try writer.writeAll(c.bg);
         try writer.writeAll(c.border_color);
         try writer.writeAll("┌");
-        try writer.writeAll("─" ** 77);
+        var i: usize = 0;
+        while (i < 77) : (i += 1) {
+            try writer.writeAll("─");
+        }
         try writer.writeAll("┐\n");
 
         // Title: "⚡ ZEKE v0.3.2" centered
         try writer.writeAll("│");
-        try writer.writeAll(" " ** 28);
+        try writeSpaces(writer, 28);
         try writer.writeAll(c.logo_primary);
         try writer.writeAll("⚡ ");
         try writer.writeAll(c.header_text);
@@ -477,12 +565,15 @@ pub const WelcomeScreen = struct {
         try writer.writeAll(c.reset);
         try writer.writeAll(c.bg);
         try writer.writeAll(c.border_color);
-        try writer.writeAll(" " ** 36);
+        try writeSpaces(writer, 36);
         try writer.writeAll("│\n");
 
         // Separator
         try writer.writeAll("├");
-        try writer.writeAll("─" ** 77);
+        var j: usize = 0;
+        while (j < 77) : (j += 1) {
+            try writer.writeAll("─");
+        }
         try writer.writeAll("┤\n");
         try writer.writeAll(c.reset);
     }
@@ -544,7 +635,7 @@ pub const WelcomeScreen = struct {
         try writer.writeAll("│");
         try writer.writeAll(c.text_primary);
         try writer.writeAll("  Tips for getting started");
-        try writer.writeAll(" " ** 24);
+        try writeSpaces(writer, 24);
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);
         try writer.writeAll(" │\n");
@@ -564,7 +655,7 @@ pub const WelcomeScreen = struct {
                 try writer.writeAll(c.bg_secondary);
                 try writer.writeAll("       ");
             } else {
-                try writer.writeAll(" " ** 24);
+                try writeSpaces(writer, 24);
             }
 
             try writer.writeAll(c.bg_primary);
@@ -579,13 +670,13 @@ pub const WelcomeScreen = struct {
                 try writer.writeAll("/init");
                 try writer.writeAll(c.text_secondary);
                 try writer.writeAll(" to create a ZEKE.md file");
-                try writer.writeAll(" " ** 13);
+                try writeSpaces(writer, 13);
             } else if (i == 1) {
                 try writer.writeAll(c.text_secondary);
                 try writer.writeAll("  with instructions for Zeke.");
-                try writer.writeAll(" " ** 18);
+                try writeSpaces(writer, 18);
             } else {
-                try writer.writeAll(" " ** 49);
+                try writeSpaces(writer, 49);
             }
 
             try writer.writeAll(c.bg_primary);
@@ -612,7 +703,7 @@ pub const WelcomeScreen = struct {
         try writer.writeAll("│");
         try writer.writeAll(c.yellow);
         try writer.writeAll("  Recent activity");
-        try writer.writeAll(" " ** 32);
+        try writeSpaces(writer, 32);
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);
         try writer.writeAll(" │\n");
@@ -637,7 +728,7 @@ pub const WelcomeScreen = struct {
         try writer.writeAll("│");
         try writer.writeAll(c.text_dim);
         try writer.writeAll("  No recent activity");
-        try writer.writeAll(" " ** 30);
+        try writeSpaces(writer, 30);
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);
         try writer.writeAll(" │\n");
@@ -659,7 +750,7 @@ pub const WelcomeScreen = struct {
         try writer.writeAll(c.bg_primary);
         try writer.writeAll(c.border_color);
         try writer.writeAll("│");
-        try writer.writeAll(" " ** 77);
+        try writeSpaces(writer, 77);
         try writer.writeAll("│\n");
 
         // Command prompt line
@@ -668,13 +759,13 @@ pub const WelcomeScreen = struct {
         try writer.writeAll("> ");
         try writer.writeAll(c.text_primary);
         try writer.writeAll("Try \"edit <filepath> to ...\"");
-        try writer.writeAll(" " ** 46);
+        try writeSpaces(writer, 46);
         try writer.writeAll(c.border_color);
         try writer.writeAll(" │\n");
 
         // Empty line
         try writer.writeAll("│");
-        try writer.writeAll(" " ** 77);
+        try writeSpaces(writer, 77);
         try writer.writeAll("│\n");
 
         try writer.writeAll(c.reset);
@@ -690,7 +781,7 @@ pub const WelcomeScreen = struct {
         try writer.writeAll("│ ");
         try writer.writeAll(c.text_dim);
         try writer.writeAll("? for shortcuts");
-        try writer.writeAll(" " ** 36);
+        try writeSpaces(writer, 36);
         try writer.writeAll(c.text_secondary);
         try writer.writeAll("Thinking off (tab to toggle)");
         try writer.writeAll(" ");
@@ -699,7 +790,10 @@ pub const WelcomeScreen = struct {
 
         // Bottom border
         try writer.writeAll("└");
-        try writer.writeAll("─" ** 77);
+        var k: usize = 0;
+        while (k < 77) : (k += 1) {
+            try writer.writeAll("─");
+        }
         try writer.writeAll("┘\n");
 
         try writer.writeAll(c.reset);
