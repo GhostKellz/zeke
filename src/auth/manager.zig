@@ -62,14 +62,23 @@ pub const AuthManager = struct {
     }
 
     /// Get API key for a provider
-    /// Priority: 1. Cached key, 2. Environment variable
+    /// Priority: 1. Cached key, 2. Keyring, 3. Environment variable
     pub fn getApiKey(self: *AuthManager, provider: []const u8) !?[]const u8 {
         // Check cached keys first
         if (self.keys.get(provider)) |key| {
             return key;
         }
 
-        // Try environment variable
+        // Try keyring second (more secure than env vars)
+        if (try self.keyring.get("zeke", provider)) |key| {
+            // Cache the key
+            try self.setApiKey(provider, key);
+            self.allocator.free(key); // Free the keyring copy, we have it cached now
+            // Return the cached copy
+            return self.keys.get(provider);
+        }
+
+        // Try environment variable as fallback
         const env_var = try self.getEnvVarName(provider);
         defer self.allocator.free(env_var);
 

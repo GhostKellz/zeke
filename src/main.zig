@@ -747,9 +747,11 @@ fn handleProviderSwitch(zeke_instance: *zeke.Zeke, provider_str: []const u8) !vo
         zeke.api.ApiProvider.azure
     else if (std.mem.eql(u8, provider_str, "ollama"))
         zeke.api.ApiProvider.ollama
+    else if (std.mem.eql(u8, provider_str, "github") or std.mem.eql(u8, provider_str, "copilot") or std.mem.eql(u8, provider_str, "github_copilot"))
+        zeke.api.ApiProvider.github_copilot
     else {
         std.debug.print("❌ Unknown provider: {s}\n", .{provider_str});
-        std.debug.print("Available providers: openai, claude, xai, azure, ollama\n", .{});
+        std.debug.print("Available providers: openai, claude, xai, azure, ollama, github_copilot\n", .{});
         return;
     };
 
@@ -785,8 +787,10 @@ fn handleProviderStatus(zeke_instance: *zeke.Zeke) !void {
 fn handleProviderList() !void {
     std.debug.print("📋 Available providers:\n", .{});
     std.debug.print("  • openai - OpenAI GPT models\n", .{});
-    std.debug.print("  • claude - Anthropic Claude models\n", .{});
+    std.debug.print("  • claude - Anthropic Claude models (OAuth)\n", .{});
+    std.debug.print("  • github_copilot - GitHub Copilot Pro (OAuth) - 19+ models\n", .{});
     std.debug.print("  • xai - xAI Grok models\n", .{});
+    std.debug.print("  • google - Google Gemini models\n", .{});
     std.debug.print("  • azure - Azure OpenAI\n", .{});
     std.debug.print("  • ollama - Local Ollama instance\n", .{});
 }

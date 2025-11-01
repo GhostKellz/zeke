@@ -1,77 +1,63 @@
 # Zeke Configuration File
-# This file controls default provider selection and model preferences
+# Copy to ~/.config/zeke/zeke.toml to customize
 
-[default]
-# Default provider to use when none is specified
-provider = "ollama"  # Options: openai, claude, xai, google, copilot, ollama
+[ui]
+# Tokyo Night theme variant
+# Options: "night" (default), "moon" (softer), "storm" (warmer)
+theme = "night"
 
-# Default model for each provider
-model = "qwen2.5-coder:7b"
+[providers]
+# Default provider for requests
+# Options: openai, claude, github_copilot, google, xai, azure, ollama
+default = "github_copilot"
 
-[providers.openai]
+# Provider-specific settings
+[providers.github_copilot]
 enabled = true
-model = "gpt-4-turbo"
-# api_key = "sk-..."  # Set via: zeke auth openai <key> or OPENAI_API_KEY env var
-temperature = 0.7
-max_tokens = 4096
+default_model = "gpt-5-codex"
 
 [providers.claude]
 enabled = true
-model = "claude-3-5-sonnet-20241022"  # Claude 3.5 Sonnet
-# api_key = ""  # Set via: zeke auth claude <key> or ANTHROPIC_API_KEY env var
-temperature = 0.7
-max_tokens = 8192
+default_model = "claude-sonnet-4.5"
 
-[providers.xai]
+[providers.openai]
 enabled = true
-model = "grok-beta"
-# api_key = ""  # Set via: zeke auth xai <key> or XAI_API_KEY env var
-temperature = 0.7
-max_tokens = 4096
+default_model = "gpt-4o"
 
 [providers.google]
 enabled = true
-model = "gemini-pro"  # or "gemini-1.5-flash", "gemini-pro-vision"
-# api_key = ""  # Set via: zeke auth google <key> or GOOGLE_API_KEY env var
-temperature = 0.7
-max_tokens = 8192
-
-[providers.copilot]
-# GitHub Copilot - Requires GitHub Pro subscription and OAuth
-enabled = true
-model = "gpt-4"  # Copilot uses GPT-4 or Claude models
-# auth_method = "oauth"  # Authenticate via: zeke auth github
+default_model = "gemini-2.5-pro"
 
 [providers.ollama]
-# Local Ollama - Free, runs in Docker or on localhost
 enabled = true
-model = "qwen2.5-coder:7b"  # Fast local coding model
-host = "http://localhost:11434"  # Or Docker container IP
-# Alternative models:
-# - "llama3.2:3b" (fast, general)
-# - "codellama:13b" (code focused)
-# - "deepseek-coder:6.7b" (code focused)
-# - "qwen2.5-coder:7b" (recommended - fast & capable)
+default_model = "qwen2.5-coder:7b"
+endpoint = "http://localhost:11434"
 
-[features]
-# Enable/disable features
-streaming = true
-file_operations = true
-web_search = false  # Requires API keys for search providers
-tool_confirmation = true  # Ask before destructive operations
-auto_save = true  # Save conversation history
+[routing]
+# Smart routing based on task type
+enable_smart_routing = true
 
-[ui]
-# TUI preferences
-theme = "dark"
-show_line_numbers = true
-syntax_highlighting = true
-vim_mode = false
+# Task-specific provider preferences
+[routing.tasks]
+code_completion = "github_copilot"
+code_review = "claude"
+reasoning = "claude"
+chat = "openai"
+fast_response = "ollama"
 
-[nvim]
-# Settings for zeke.nvim plugin
-enabled = true
-auto_complete = true
-inline_suggestions = true
-# When multiple providers are available, fallback order:
-provider_fallback = ["copilot", "ollama", "google", "claude", "openai", "xai"]
+[performance]
+# Request timeout in milliseconds
+timeout_ms = 30000
+
+# Enable caching
+enable_cache = true
+
+# Maximum concurrent requests
+max_concurrent = 5
+
+[security]
+# Store API keys in system keyring (recommended)
+use_keyring = true
+
+# Allow insecure connections (not recommended)
+allow_insecure = false

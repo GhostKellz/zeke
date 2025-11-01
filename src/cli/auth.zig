@@ -46,6 +46,45 @@ pub fn run(allocator: std.mem.Allocator, args: []const []const u8) !void {
         var auth = AuthManager.init(allocator);
         defer auth.deinit();
         try auth.printStatus();
+    } else if (std.mem.eql(u8, subcommand, "set-key")) {
+        // Store API key in keyring
+        if (args.len < 3) {
+            std.debug.print("Usage: zeke auth set-key <provider> <api-key>\n", .{});
+            std.debug.print("Example: zeke auth set-key google AIzaSy...\n", .{});
+            std.debug.print("Example: zeke auth set-key openai sk-proj-...\n", .{});
+            std.debug.print("\nSupported providers: openai, google, xai\n", .{});
+            return;
+        }
+
+        const provider = args[1];
+        const api_key = args[2];
+
+        var auth = AuthManager.init(allocator);
+        defer auth.deinit();
+
+        // Store in keyring
+        try auth.keyring.set("zeke", provider, api_key);
+
+        std.debug.print("\n✅ API key for {s} stored securely in keyring\n", .{provider});
+        std.debug.print("   (no longer need to set environment variable)\n\n", .{});
+    } else if (std.mem.eql(u8, subcommand, "get-key")) {
+        // Retrieve API key from keyring (for debugging)
+        if (args.len < 2) {
+            std.debug.print("Usage: zeke auth get-key <provider>\n", .{});
+            std.debug.print("Example: zeke auth get-key google\n", .{});
+            return;
+        }
+
+        const provider = args[1];
+        var auth = AuthManager.init(allocator);
+        defer auth.deinit();
+
+        if (try auth.keyring.get("zeke", provider)) |key| {
+            defer allocator.free(key);
+            std.debug.print("\n🔑 API key for {s}: {s}\n\n", .{ provider, key });
+        } else {
+            std.debug.print("\n❌ No API key found for {s}\n\n", .{provider});
+        }
     } else if (std.mem.eql(u8, subcommand, "logout")) {
         // Logout from provider
         if (args.len < 2) {
@@ -75,6 +114,10 @@ fn printUsage() void {
         \\  zeke auth copilot                   - Authenticate with GitHub Copilot (Device Flow)
         \\  zeke auth github                    - Alias for 'copilot'
         \\
+        \\API Key Management (secure keyring storage):
+        \\  zeke auth set-key <provider> <key>  - Store API key securely in system keyring
+        \\  zeke auth get-key <provider>        - Retrieve stored API key (for debugging)
+        \\
         \\Status:
         \\  zeke auth status                    - Show authentication status for all providers
         \\
@@ -82,7 +125,12 @@ fn printUsage() void {
         \\  zeke auth logout <provider>         - Remove OAuth tokens for a provider
         \\                                        (providers: anthropic, github)
         \\
-        \\Note: API keys can still be set via environment variables:
+        \\Examples:
+        \\  zeke auth set-key google AIzaSy...   - Store Google Gemini API key
+        \\  zeke auth set-key openai sk-proj-... - Store OpenAI API key
+        \\  zeke auth set-key xai xai-...        - Store xAI API key
+        \\
+        \\Note: API keys can also be set via environment variables:
         \\  - OPENAI_API_KEY          - OpenAI API key
         \\  - ANTHROPIC_API_KEY       - Anthropic API key
         \\  - GOOGLE_API_KEY          - Google API key

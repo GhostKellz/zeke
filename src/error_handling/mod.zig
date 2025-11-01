@@ -436,11 +436,13 @@ pub const TimeoutManager = struct {
         
         // Provider-specific defaults
         return switch (provider) {
-            .ghostllm => 20000, // 20 seconds - custom provider might be slower
             .openai => 30000,   // 30 seconds
             .claude => 35000,   // 35 seconds - Claude can be slower
-            .copilot => 25000,  // 25 seconds
+            .github_copilot => 25000,  // 25 seconds
             .ollama => 60000,   // 60 seconds - local models can be slow
+            .azure => 30000,    // 30 seconds
+            .xai => 30000,      // 30 seconds
+            .google => 30000,   // 30 seconds
         };
     }
 };

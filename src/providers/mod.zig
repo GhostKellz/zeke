@@ -8,6 +8,7 @@ pub const azure = @import("azure.zig");
 pub const claude = @import("claude.zig");
 pub const openai = @import("openai.zig");
 pub const google = @import("google.zig");
+pub const github_copilot = @import("github_copilot.zig");
 
 pub const ProviderCapability = enum {
     chat_completion,

@@ -195,6 +195,7 @@ pub const Zeke = struct {
             .google => auth.AuthProvider.google,
             .azure => auth.AuthProvider.azure,
             .ollama => auth.AuthProvider.local,
+            .github_copilot => auth.AuthProvider.github,
         };
 
         // Auth manager integration (TODO: implement getApiKey method in AuthManager)
@@ -277,6 +278,7 @@ pub const Zeke = struct {
             .google => auth.AuthProvider.google,
             .azure => auth.AuthProvider.azure,
             .ollama => auth.AuthProvider.local,
+            .github_copilot => auth.AuthProvider.github,
         };
 
         // Auth manager integration (TODO: implement getApiKey method in AuthManager)
@@ -453,6 +455,7 @@ pub const Zeke = struct {
                 .google => try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{token}), // Google API key
                 .azure => try std.fmt.allocPrint(self.allocator, "api-key: {s}", .{token}),
                 .ollama => token,
+                .github_copilot => try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{token}),
             };
             defer self.allocator.free(auth_header);
 

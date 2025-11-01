@@ -7,6 +7,7 @@ pub const ApiProvider = enum {
     xai, // xAI/Grok
     google, // Google Gemini
     ollama, // Local Ollama (Docker or custom host)
+    github_copilot, // GitHub Copilot Pro (OAuth)
 };
 
 // Rate limiter for API calls
@@ -72,6 +73,7 @@ pub const ApiClient = struct {
             .xai => "https://api.x.ai",
             .google => "https://generativelanguage.googleapis.com",
             .ollama => "http://localhost:11434",
+            .github_copilot => "https://api.githubcopilot.com",
         };
 
         // Initialize async runtime (placeholder)
@@ -590,6 +592,7 @@ pub const ApiClient = struct {
                 .xai => try std.fmt.bufPrint(&auth_header_buf, "Bearer {s}", .{token}),
                 .google => null, // Google uses API key in URL parameter
                 .ollama => null, // Ollama doesn't need auth
+                .github_copilot => try std.fmt.bufPrint(&auth_header_buf, "Bearer {s}", .{token}),
             };
         }
 

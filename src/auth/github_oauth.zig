@@ -113,14 +113,41 @@ pub const GitHubOAuth = struct {
         // Read response body
         var response_body: [4096]u8 = undefined;
         const response_reader = response.reader(&response_body);
-        const body_data = try response_reader.*.allocRemaining(self.allocator, @enumFromInt(1024 * 1024));
-        defer self.allocator.free(body_data);
+        const compressed_body = try response_reader.*.allocRemaining(self.allocator, @enumFromInt(1024 * 1024));
+        defer self.allocator.free(compressed_body);
+
+        // Decompress gzip response using gunzip
+        const temp_compressed = "/tmp/zeke_github_response.gz";
+
+        // Write compressed data to temp file
+        const compressed_file = try std.fs.createFileAbsolute(temp_compressed, .{});
+        defer compressed_file.close();
+        try compressed_file.writeAll(compressed_body);
+
+        // Decompress using gunzip
+        const result = try std.process.Child.run(.{
+            .allocator = self.allocator,
+            .argv = &[_][]const u8{ "gunzip", "-c", temp_compressed },
+        });
+        defer self.allocator.free(result.stdout);
+        defer self.allocator.free(result.stderr);
+
+        if (result.term.Exited != 0) {
+            std.debug.print("❌ gunzip failed: {s}\n", .{result.stderr});
+            return error.DecompressionFailed;
+        }
+
+        const decompressed_output = try self.allocator.dupe(u8, result.stdout);
+        defer self.allocator.free(decompressed_output);
+
+        // Clean up temp file
+        std.fs.deleteFileAbsolute(temp_compressed) catch {};
 
         // Parse JSON response
         const parsed = try std.json.parseFromSlice(
             DeviceCodeResponseJson,
             self.allocator,
-            body_data,
+            decompressed_output,
             .{ .ignore_unknown_fields = true },
         );
         defer parsed.deinit();
@@ -192,8 +219,35 @@ pub const GitHubOAuth = struct {
             // Read response body
             var response_body: [4096]u8 = undefined;
             const response_reader = response.reader(&response_body);
-            const body_data = try response_reader.*.allocRemaining(self.allocator, @enumFromInt(1024 * 1024));
-            defer self.allocator.free(body_data);
+            const compressed_body = try response_reader.*.allocRemaining(self.allocator, @enumFromInt(1024 * 1024));
+            defer self.allocator.free(compressed_body);
+
+            // Decompress gzip response using gunzip
+            const temp_compressed = "/tmp/zeke_github_token.gz";
+
+            // Write compressed data to temp file
+            const compressed_file = try std.fs.createFileAbsolute(temp_compressed, .{});
+            defer compressed_file.close();
+            try compressed_file.writeAll(compressed_body);
+
+            // Decompress using gunzip
+            const result = try std.process.Child.run(.{
+                .allocator = self.allocator,
+                .argv = &[_][]const u8{ "gunzip", "-c", temp_compressed },
+            });
+            defer self.allocator.free(result.stdout);
+            defer self.allocator.free(result.stderr);
+
+            if (result.term.Exited != 0) {
+                std.debug.print("❌ gunzip failed: {s}\n", .{result.stderr});
+                return error.DecompressionFailed;
+            }
+
+            const decompressed_output = try self.allocator.dupe(u8, result.stdout);
+            defer self.allocator.free(decompressed_output);
+
+            // Clean up temp file
+            std.fs.deleteFileAbsolute(temp_compressed) catch {};
 
             // Check if response is successful
             if (response.head.status == .ok) {
@@ -201,7 +255,7 @@ pub const GitHubOAuth = struct {
                 const parsed = try std.json.parseFromSlice(
                     TokenResponseJson,
                     self.allocator,
-                    body_data,
+                    decompressed_output,
                     .{ .ignore_unknown_fields = true },
                 );
                 defer parsed.deinit();
