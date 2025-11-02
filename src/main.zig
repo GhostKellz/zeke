@@ -970,6 +970,10 @@ fn handleSmartExplain(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, c
 fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
     const WelcomeScreen = @import("tui/welcome_screen.zig").WelcomeScreen;
     const input = @import("tui/input.zig");
+    const commands = @import("tui/commands.zig");
+    const Session = @import("tui/session.zig").Session;
+    const ThinkingIndicator = @import("tui/thinking.zig").ThinkingIndicator;
+    const status_bar = @import("tui/status_bar.zig");
 
     // Get username from environment
     const username = std.posix.getenv("USER") orelse "User";
@@ -978,8 +982,13 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
     var cwd_buf: [1024]u8 = undefined;
     const cwd = try std.fs.cwd().realpath(".", &cwd_buf);
 
-    // Get current model
+    // Get current model and provider
     const model_display = zeke_instance.config.default_model;
+    const provider_display = zeke_instance.config.providers.default_provider;
+
+    // Create session
+    var session = try Session.init(allocator, provider_display, model_display);
+    defer session.deinit();
 
     // Create welcome screen
     var screen = try WelcomeScreen.init(
@@ -1010,8 +1019,11 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
     var input_buffer = try std.array_list.AlignedManaged(u8, null).initCapacity(allocator, 256);
     defer input_buffer.deinit();
 
-    // Session state
-    var thinking_mode: bool = false;
+    // Input history for arrow up/down navigation
+    var input_history = status_bar.InputHistory.init(allocator, 100);
+    defer input_history.deinit();
+
+    // Running state
     var running: bool = true;
 
     // Main event loop
@@ -1039,8 +1051,8 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
             },
             .tab => {
                 // Toggle thinking mode
-                thinking_mode = !thinking_mode;
-                const status = if (thinking_mode) "ON" else "OFF";
+                session.toggleThinking();
+                const status = if (session.thinking_mode) "ON" else "OFF";
                 const msg = try std.fmt.allocPrint(allocator, "\r\n🧠 Thinking mode: {s}\r\n", .{status});
                 defer allocator.free(msg);
                 _ = try std.posix.write(stdout, msg);
@@ -1048,16 +1060,102 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
             .enter => {
                 // Submit command
                 if (input_buffer.items.len > 0) {
-                    const msg = try std.fmt.allocPrint(
-                        allocator,
-                        "\r\n⚡ Command: {s}\r\n",
-                        .{input_buffer.items},
-                    );
-                    defer allocator.free(msg);
-                    _ = try std.posix.write(stdout, msg);
+                    _ = try std.posix.write(stdout, "\r\n");
+
+                    // Add to history
+                    try input_history.add(input_buffer.items);
+
+                    // Parse command
+                    const cmd = try commands.Command.parse(allocator, input_buffer.items);
+                    defer cmd.deinit(allocator);
+
+                    switch (cmd) {
+                        .empty => {},
+                        .chat => |message| {
+                            // Add user message to history
+                            try session.addMessage(.user, message);
+
+                            // Echo user message
+                            const user_msg = try std.fmt.allocPrint(allocator, "💬 You: {s}\r\n\r\n", .{message});
+                            defer allocator.free(user_msg);
+                            _ = try std.posix.write(stdout, user_msg);
+
+                            // Show thinking indicator while waiting for AI
+                            var thinking = ThinkingIndicator.init("Thinking...");
+                            try thinking.write(stdout);
+
+                            try session.startStreaming();
+
+                            // Get AI response with comprehensive error handling
+                            var had_error = false;
+                            const ai_response = zeke_instance.chat(message) catch |err| blk: {
+                                try ThinkingIndicator.clear(stdout);
+                                session.cancelStreaming();
+                                had_error = true;
+
+                                // Provide helpful error message with suggestion
+                                const error_name = @errorName(err);
+                                const error_msg = try std.fmt.allocPrint(
+                                    allocator,
+                                    "🤖 AI: ❌ Error: {s}\r\n💡 Tip: Type /help for available commands or try /provider to switch providers\r\n",
+                                    .{error_name},
+                                );
+                                break :blk error_msg;
+                            };
+                            defer allocator.free(ai_response);
+
+                            // If error occurred, the message is already formatted with prefix
+                            if (had_error) {
+                                _ = try std.posix.write(stdout, ai_response);
+                            } else {
+                                // Clear thinking indicator and show AI prefix
+                                try ThinkingIndicator.clear(stdout);
+                                _ = try std.posix.write(stdout, "🤖 AI: ");
+
+                                // Stream response character-by-character
+                                for (ai_response) |char| {
+                                    const char_buf = [_]u8{char};
+                                    _ = try std.posix.write(stdout, &char_buf);
+                                    // Small delay for visual effect (10ms per char)
+                                    std.Thread.sleep(10 * std.time.ns_per_ms);
+                                }
+
+                                _ = try std.posix.write(stdout, "\r\n");
+
+                                // Save to history
+                                try session.appendChunk(ai_response);
+                                try session.finishStreaming();
+                            }
+                        },
+                        .slash => |slash_cmd| {
+                            // Execute slash command
+                            const result = try slash_cmd.execute(allocator, &session);
+                            defer allocator.free(result);
+
+                            // Handle special commands
+                            if (std.mem.eql(u8, result, "[EXIT]")) {
+                                running = false;
+                            } else if (std.mem.eql(u8, result, "[CLEAR_SCREEN]")) {
+                                // Clear and re-render
+                                try screen.build();
+                                var stdout_buf: [8192]u8 = undefined;
+                                const stdout_file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
+                                const writer = stdout_file.writer(&stdout_buf);
+                                try screen.render(writer);
+                            } else {
+                                // Display result
+                                const output = try std.fmt.allocPrint(allocator, "ℹ️  {s}\r\n", .{result});
+                                defer allocator.free(output);
+                                _ = try std.posix.write(stdout, output);
+                            }
+                        },
+                    }
 
                     // Clear input buffer
                     input_buffer.clearRetainingCapacity();
+
+                    // Show prompt
+                    _ = try std.posix.write(stdout, "\r\n> ");
                 }
             },
             .backspace => {
@@ -1076,10 +1174,48 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
                 _ = try std.posix.write(stdout, &char_buf);
             },
             .arrow_up => {
-                _ = try std.posix.write(stdout, "\r\n↑ Arrow Up (scroll history up)\r\n");
+                // Navigate to previous history entry
+                if (input_history.navigatePrevious()) |prev| {
+                    // Clear current line
+                    _ = try std.posix.write(stdout, "\r> ");
+                    for (0..input_buffer.items.len) |_| {
+                        _ = try std.posix.write(stdout, " ");
+                    }
+
+                    // Replace with history entry
+                    input_buffer.clearRetainingCapacity();
+                    try input_buffer.appendSlice(prev);
+
+                    // Render new input
+                    _ = try std.posix.write(stdout, "\r> ");
+                    _ = try std.posix.write(stdout, prev);
+                }
             },
             .arrow_down => {
-                _ = try std.posix.write(stdout, "\r\n↓ Arrow Down (scroll history down)\r\n");
+                // Navigate to next history entry
+                if (input_history.navigateNext()) |next| {
+                    // Clear current line
+                    _ = try std.posix.write(stdout, "\r> ");
+                    for (0..input_buffer.items.len) |_| {
+                        _ = try std.posix.write(stdout, " ");
+                    }
+
+                    // Replace with history entry
+                    input_buffer.clearRetainingCapacity();
+                    try input_buffer.appendSlice(next);
+
+                    // Render new input
+                    _ = try std.posix.write(stdout, "\r> ");
+                    _ = try std.posix.write(stdout, next);
+                } else {
+                    // Reached end of history, clear input
+                    _ = try std.posix.write(stdout, "\r> ");
+                    for (0..input_buffer.items.len) |_| {
+                        _ = try std.posix.write(stdout, " ");
+                    }
+                    input_buffer.clearRetainingCapacity();
+                    _ = try std.posix.write(stdout, "\r> ");
+                }
             },
             .ctrl_l => {
                 // Clear screen and re-render welcome

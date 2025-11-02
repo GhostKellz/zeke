@@ -114,10 +114,10 @@ pub const ProviderPreferencesConfig = struct {
 
 pub const Config = struct {
     allocator: std.mem.Allocator,
-    
+
     // Model settings
     default_model: []const u8 = "gpt-4",
-    models: std.ArrayList(ModelConfig),
+    models: std.array_list.AlignedManaged(ModelConfig, null),
     
     // API endpoints
     endpoints: ProviderEndpointConfig = ProviderEndpointConfig{},
@@ -177,16 +177,24 @@ pub const Config = struct {
     const Self = @This();
     
     pub fn init(allocator: std.mem.Allocator) Self {
+        // Always use heap-allocated strings for consistent ownership
+        const default_model = allocator.dupe(u8, "gpt-4") catch unreachable;
+        const default_provider = allocator.dupe(u8, "ollama") catch unreachable;
+
         return Self{
             .allocator = allocator,
-            .models = std.ArrayList(ModelConfig){},
+            .models = std.array_list.AlignedManaged(ModelConfig, null).init(allocator),
+            .default_model = default_model,
+            .providers = ProviderPreferencesConfig{
+                .default_provider = default_provider,
+            },
         };
     }
-    
-    pub fn deinit(self: *Self) void {
-        self.models.deinit(self.allocator);
 
-        // Free provider config strings
+    pub fn deinit(self: *Self) void {
+        self.models.deinit();
+
+        // Always free - all strings are heap allocated in init()
         self.allocator.free(self.providers.default_provider);
         self.allocator.free(self.default_model);
 
@@ -369,14 +377,14 @@ pub const Config = struct {
     
     pub fn addDefaultModels(self: *Self) !void {
         // Claude 4.x models (latest - actual model IDs)
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "claude-sonnet-4-5-20250929",
             .provider = "claude",
             .temperature = 0.7,
             .max_tokens = 8000,
         });
 
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "claude-opus-4-1-20250805",
             .provider = "claude",
             .temperature = 0.7,
@@ -384,14 +392,14 @@ pub const Config = struct {
         });
 
         // OpenAI models
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "gpt-4-turbo",
             .provider = "openai",
             .temperature = 0.7,
             .max_tokens = 4000,
         });
 
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "gpt-3.5-turbo",
             .provider = "openai",
             .temperature = 0.7,
@@ -399,14 +407,14 @@ pub const Config = struct {
         });
 
         // xAI/Grok models
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "grok-2-latest",
             .provider = "xai",
             .temperature = 0.7,
             .max_tokens = 4000,
         });
 
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "grok-beta",
             .provider = "xai",
             .temperature = 0.7,
@@ -414,14 +422,14 @@ pub const Config = struct {
         });
 
         // Ollama models (local)
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "llama3.2:3b",
             .provider = "ollama",
             .temperature = 0.7,
             .max_tokens = 2000,
         });
 
-        try self.models.append(self.allocator, ModelConfig{
+        try self.models.append(ModelConfig{
             .name = "qwen2.5-coder:7b",
             .provider = "ollama",
             .temperature = 0.7,

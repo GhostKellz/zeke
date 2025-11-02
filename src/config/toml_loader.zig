@@ -27,11 +27,15 @@ pub fn loadFromToml(allocator: std.mem.Allocator, file_path: []const u8) !config
             const default_section = default_val.table;
             if (default_section.get("provider")) |prov_val| {
                 if (prov_val == .string) {
+                    // Free old default before replacing
+                    allocator.free(cfg.providers.default_provider);
                     cfg.providers.default_provider = try allocator.dupe(u8, prov_val.string);
                 }
             }
             if (default_section.get("model")) |model_val| {
                 if (model_val == .string) {
+                    // Free old default before replacing
+                    allocator.free(cfg.default_model);
                     cfg.default_model = try allocator.dupe(u8, model_val.string);
                 }
             }
