@@ -1006,7 +1006,16 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
     const stdout = std.posix.STDOUT_FILENO;
     const stdin = std.posix.STDIN_FILENO;
 
-    // Render welcome screen once
+    // Set up full-screen TUI layout
+    const layout_mod = @import("tui/layout.zig");
+    const dims = try layout_mod.Dimensions.get();
+    const layout = layout_mod.Layout.init(dims);
+
+    // Clear screen and hide cursor
+    try layout_mod.Layout.clearScreen(stdout);
+    try layout_mod.Layout.hideCursor(stdout);
+
+    // Render welcome screen in upper portion
     {
         try screen.build();
         var stdout_buf: [8192]u8 = undefined;
@@ -1014,6 +1023,12 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
         const writer = stdout_file.writer(&stdout_buf);
         try screen.render(writer);
     }
+
+    // Position cursor at input line
+    const input_row = layout.dims.height - 1;
+    try layout_mod.Layout.moveCursor(stdout, input_row, 1);
+    try layout_mod.Layout.showCursor(stdout);
+    _ = try std.posix.write(stdout, "> ");
 
     // Input buffer for command input
     var input_buffer = try std.array_list.AlignedManaged(u8, null).initCapacity(allocator, 256);
@@ -1236,14 +1251,7 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
                 input_buffer.clearRetainingCapacity();
             },
             else => {
-                // Debug: show unknown keys
-                const debug_msg = try std.fmt.allocPrint(
-                    allocator,
-                    "\r\n[Unknown key]\r\n",
-                    .{},
-                );
-                defer allocator.free(debug_msg);
-                _ = try std.posix.write(stdout, debug_msg);
+                // Ignore unknown escape sequences
             },
         }
     }

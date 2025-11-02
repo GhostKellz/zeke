@@ -14,8 +14,8 @@ pub const Dimensions = struct {
         }
 
         return Dimensions{
-            .width = ws.ws_col,
-            .height = ws.ws_row,
+            .width = ws.col,
+            .height = ws.row,
         };
     }
 };
