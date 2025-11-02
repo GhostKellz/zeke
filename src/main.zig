@@ -967,21 +967,8 @@ fn handleSmartExplain(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator, c
     }
 }
 
-// Simple writer that wraps ArrayList for Zig 0.16
-const StdoutWriter = struct {
-    buffer: *std.ArrayList(u8),
-    allocator: std.mem.Allocator,
-
-    const Error = error{OutOfMemory};
-    const Self = @This();
-
-    pub fn writeAll(self: Self, bytes: []const u8) Error!void {
-        try self.buffer.appendSlice(self.allocator, bytes);
-    }
-};
-
 fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
-    const tokyo = @import("tui/tokyo_night.zig");
+    const WelcomeScreen = @import("tui/welcome_screen.zig").WelcomeScreen;
     const input = @import("tui/input.zig");
 
     // Get username from environment
@@ -995,12 +982,13 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
     const model_display = zeke_instance.config.default_model;
 
     // Create welcome screen
-    var screen = tokyo.WelcomeScreen.init(
+    var screen = try WelcomeScreen.init(
         allocator,
         username,
         model_display,
         cwd,
     );
+    defer screen.deinit();
 
     // Initialize terminal in raw mode
     var term_state = try input.TerminalState.init();
@@ -1011,17 +999,16 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
 
     // Render welcome screen once
     {
-        var buffer = std.ArrayList(u8){};
-        defer buffer.deinit(allocator);
-
-        const writer = StdoutWriter{ .buffer = &buffer, .allocator = allocator };
+        try screen.build();
+        var stdout_buf: [8192]u8 = undefined;
+        const stdout_file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
+        const writer = stdout_file.writer(&stdout_buf);
         try screen.render(writer);
-        _ = try std.posix.write(stdout, buffer.items);
     }
 
     // Input buffer for command input
-    var input_buffer = try std.ArrayList(u8).initCapacity(allocator, 256);
-    defer input_buffer.deinit(allocator);
+    var input_buffer = try std.array_list.AlignedManaged(u8, null).initCapacity(allocator, 256);
+    defer input_buffer.deinit();
 
     // Session state
     var thinking_mode: bool = false;
@@ -1083,7 +1070,7 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
             },
             .char => |c| {
                 // Add character to input buffer
-                try input_buffer.append(allocator, c);
+                try input_buffer.append(c);
                 // Echo the character
                 const char_buf = [_]u8{c};
                 _ = try std.posix.write(stdout, &char_buf);
@@ -1096,12 +1083,12 @@ fn handleTui(zeke_instance: *zeke.Zeke, allocator: std.mem.Allocator) !void {
             },
             .ctrl_l => {
                 // Clear screen and re-render welcome
-                _ = try std.posix.write(stdout, "\x1b[2J\x1b[H");
-                var buffer = std.ArrayList(u8){};
-                defer buffer.deinit(allocator);
-                const writer = StdoutWriter{ .buffer = &buffer, .allocator = allocator };
-                try screen.render(writer);
-                _ = try std.posix.write(stdout, buffer.items);
+                try screen.build();
+                var stdout_buf: [16384]u8 = undefined;
+                const stdout_file = std.fs.File{ .handle = std.posix.STDOUT_FILENO };
+                var file_writer = stdout_file.writer(&stdout_buf);
+                try screen.render(&file_writer.interface);
+                try file_writer.interface.flush();
             },
             .ctrl_u => {
                 // Clear input line

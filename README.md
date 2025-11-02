@@ -182,6 +182,28 @@ zeke watch --auto-fix --auto-commit
 
 ---
 
+## 🖥️ Interactive TUI
+
+ZEKE features a beautiful Tokyo Night-themed TUI for interactive sessions:
+
+<div align="center">
+  <img src="assets/images/zeke-tui.png" alt="ZEKE TUI Interface" />
+</div>
+
+Launch the TUI with:
+```sh
+zeke tui
+```
+
+**TUI Features:**
+* 🎨 Tokyo Night color scheme with smooth gradients
+* ⌨️ Full keyboard support (Tab to toggle thinking mode)
+* 📝 Live command input with visual feedback
+* 🔄 Real-time model and directory display
+* ✨ Clean, responsive interface
+
+---
+
 ## 💡 Roadmap
 
 * Project/file search and edit
