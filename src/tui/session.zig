@@ -1,5 +1,8 @@
 const std = @import("std");
 const permissions = @import("permissions.zig");
+const tool_executor = @import("tool_executor.zig");
+const context_manager = @import("context_manager.zig");
+const zeke = @import("zeke");
 
 /// Message role in conversation
 pub const MessageRole = enum {
@@ -42,6 +45,9 @@ pub const Session = struct {
     streaming_state: StreamingState,
     streaming_buffer: std.array_list.AlignedManaged(u8, null),
     permission_manager: permissions.PermissionManager,
+    tool_executor: tool_executor.ToolExecutor,
+    context_manager: context_manager.ContextManager,
+    git_ops: zeke.git.GitOps,
 
     pub fn init(allocator: std.mem.Allocator, provider: []const u8, model: []const u8) !Session {
         return Session{
@@ -55,6 +61,9 @@ pub const Session = struct {
             .streaming_state = .idle,
             .streaming_buffer = std.array_list.AlignedManaged(u8, null).init(allocator),
             .permission_manager = permissions.PermissionManager.init(allocator),
+            .tool_executor = tool_executor.ToolExecutor.init(allocator),
+            .context_manager = context_manager.ContextManager.init(allocator, 200000), // 200k token limit
+            .git_ops = zeke.git.GitOps.init(allocator),
         };
     }
 
@@ -74,6 +83,15 @@ pub const Session = struct {
 
         // Free permission manager
         self.permission_manager.deinit();
+
+        // Free tool executor
+        self.tool_executor.deinit();
+
+        // Free context manager
+        self.context_manager.deinit();
+
+        // Free git ops
+        self.git_ops.deinit();
     }
 
     /// Add a message to history

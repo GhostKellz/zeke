@@ -82,6 +82,20 @@ pub const SlashCommand = struct {
                 \\  /exit              - Exit TUI
                 \\  /history           - Show message history
                 \\
+                \\Context commands:
+                \\  /context add <path>    - Add file/dir to context
+                \\  /context remove <path> - Remove from context
+                \\  /context list          - List context items
+                \\  /context clear         - Clear all context
+                \\  /context stats         - Show token usage stats
+                \\
+                \\Git commands:
+                \\  /git status            - Show git status
+                \\  /git diff [file]       - Show git diff
+                \\  /git commit [msg]      - Create commit (AI-generated if no msg)
+                \\  /git add <file>        - Stage file
+                \\  /git branch            - Show current branch
+                \\
                 \\Keyboard shortcuts:
                 \\  Tab                - Toggle thinking mode
                 \\  Ctrl+C / Ctrl+D    - Exit
@@ -164,6 +178,176 @@ pub const SlashCommand = struct {
             }
 
             return try result.toOwnedSlice();
+        }
+
+        // /git command
+        if (std.mem.eql(u8, self.name, "git")) {
+            var args_iter = std.mem.splitScalar(u8, self.args, ' ');
+            const subcommand = args_iter.next() orelse {
+                return try allocator.dupe(u8, "Usage: /git <status|diff|commit|add|branch> [args]");
+            };
+
+            if (std.mem.eql(u8, subcommand, "status")) {
+                const files = session.git_ops.getStatus() catch |err| {
+                    return try std.fmt.allocPrint(allocator, "Git status failed: {}", .{err});
+                };
+                defer {
+                    for (files) |*file| {
+                        file.deinit(allocator);
+                    }
+                    allocator.free(files);
+                }
+
+                if (files.len == 0) {
+                    return try allocator.dupe(u8, "No changes");
+                }
+
+                var result = std.array_list.AlignedManaged(u8, null).init(allocator);
+                defer result.deinit();
+
+                try result.appendSlice("Git Status:\n");
+                for (files) |file| {
+                    const status_str = switch (file.status) {
+                        .modified => "M",
+                        .added => "A",
+                        .deleted => "D",
+                        .renamed => "R",
+                        .untracked => "?",
+                        .staged => "S",
+                    };
+                    const line = try std.fmt.allocPrint(allocator, "{s} {s}\n", .{status_str, file.path});
+                    defer allocator.free(line);
+                    try result.appendSlice(line);
+                }
+
+                return try result.toOwnedSlice();
+            } else if (std.mem.eql(u8, subcommand, "diff")) {
+                const file_path = args_iter.rest();
+                const file_arg = if (file_path.len > 0) file_path else null;
+
+                const diff = session.git_ops.getDiff(file_arg) catch |err| {
+                    return try std.fmt.allocPrint(allocator, "Git diff failed: {}", .{err});
+                };
+
+                if (diff.len == 0) {
+                    allocator.free(diff);
+                    return try allocator.dupe(u8, "No changes to show");
+                }
+
+                return diff;
+            } else if (std.mem.eql(u8, subcommand, "add")) {
+                const file_path = args_iter.rest();
+                if (file_path.len == 0) {
+                    return try allocator.dupe(u8, "Usage: /git add <file_path>");
+                }
+
+                session.git_ops.addFile(file_path) catch |err| {
+                    return try std.fmt.allocPrint(allocator, "Git add failed: {}", .{err});
+                };
+
+                return try std.fmt.allocPrint(allocator, "Staged: {s}", .{file_path});
+            } else if (std.mem.eql(u8, subcommand, "commit")) {
+                const message = args_iter.rest();
+
+                const commit_msg = if (message.len > 0)
+                    message
+                else
+                    "Auto-commit"; // TODO: Generate AI message based on diff
+
+                session.git_ops.commit(commit_msg) catch |err| {
+                    return try std.fmt.allocPrint(allocator, "Git commit failed: {}", .{err});
+                };
+
+                return try std.fmt.allocPrint(allocator, "Committed: {s}", .{commit_msg});
+            } else if (std.mem.eql(u8, subcommand, "branch")) {
+                const branch = session.git_ops.getCurrentBranch() catch |err| {
+                    return try std.fmt.allocPrint(allocator, "Failed to get branch: {}", .{err});
+                };
+                return branch;
+            } else {
+                return try std.fmt.allocPrint(allocator, "Unknown git subcommand: {s}", .{subcommand});
+            }
+        }
+
+        // /context command
+        if (std.mem.eql(u8, self.name, "context")) {
+            var args_iter = std.mem.splitScalar(u8, self.args, ' ');
+            const subcommand = args_iter.next() orelse {
+                return try allocator.dupe(u8, "Usage: /context <add|remove|list|clear|stats> [args]");
+            };
+
+            if (std.mem.eql(u8, subcommand, "add")) {
+                const path = args_iter.rest();
+                if (path.len == 0) {
+                    return try allocator.dupe(u8, "Usage: /context add <file_or_directory_path>");
+                }
+
+                // Check if it's a directory
+                const stat = std.fs.cwd().statFile(path) catch |err| {
+                    return try std.fmt.allocPrint(allocator, "Error: Could not access '{s}': {}", .{path, err});
+                };
+
+                if (stat.kind == .directory) {
+                    session.context_manager.addDirectory(path, 3) catch |err| {
+                        return try std.fmt.allocPrint(allocator, "Error adding directory: {}", .{err});
+                    };
+                    return try std.fmt.allocPrint(allocator, "Added directory to context: {s}", .{path});
+                } else {
+                    session.context_manager.addFile(path) catch |err| {
+                        return try std.fmt.allocPrint(allocator, "Error adding file: {}", .{err});
+                    };
+                    return try std.fmt.allocPrint(allocator, "Added file to context: {s}", .{path});
+                }
+            } else if (std.mem.eql(u8, subcommand, "remove")) {
+                const path = args_iter.rest();
+                if (path.len == 0) {
+                    return try allocator.dupe(u8, "Usage: /context remove <path>");
+                }
+
+                session.context_manager.remove(path) catch |err| {
+                    return try std.fmt.allocPrint(allocator, "Error removing from context: {}", .{err});
+                };
+                return try std.fmt.allocPrint(allocator, "Removed from context: {s}", .{path});
+            } else if (std.mem.eql(u8, subcommand, "list")) {
+                const items = session.context_manager.list();
+                if (items.len == 0) {
+                    return try allocator.dupe(u8, "No items in context");
+                }
+
+                var result = std.array_list.AlignedManaged(u8, null).init(allocator);
+                defer result.deinit();
+
+                try result.appendSlice("Context Items:\n");
+                for (items, 0..) |item, i| {
+                    const type_str = switch (item.type) {
+                        .file => "File",
+                        .directory => "Dir",
+                        .text => "Text",
+                        .url => "URL",
+                    };
+                    const line = try std.fmt.allocPrint(
+                        allocator,
+                        "[{d}] {s}: {s} ({d} tokens)\n",
+                        .{i + 1, type_str, item.path, item.token_count},
+                    );
+                    defer allocator.free(line);
+                    try result.appendSlice(line);
+                }
+
+                return try result.toOwnedSlice();
+            } else if (std.mem.eql(u8, subcommand, "clear")) {
+                session.context_manager.clear();
+                return try allocator.dupe(u8, "Context cleared");
+            } else if (std.mem.eql(u8, subcommand, "stats")) {
+                const stats = session.context_manager.getStats();
+                return try std.fmt.allocPrint(
+                    allocator,
+                    "Context Stats:\n  Items: {d}\n  Tokens: {d} / {d}\n  Usage: {d:.1}%",
+                    .{stats.items, stats.tokens, stats.max_tokens, stats.usage_percent},
+                );
+            } else {
+                return try std.fmt.allocPrint(allocator, "Unknown context subcommand: {s}", .{subcommand});
+            }
         }
 
         // Unknown command
